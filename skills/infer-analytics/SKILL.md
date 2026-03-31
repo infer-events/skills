@@ -2,6 +2,13 @@
 
 You have access to product analytics through the Infer MCP server. This guide teaches you how to query data effectively and interpret results like an experienced product analyst.
 
+## Presenting Tool Output
+
+**CRITICAL: All Infer MCP tools return pre-formatted text with Unicode bar charts (█░),
+sparklines (▁▂▃▅▆█), and structured layouts. ALWAYS present the tool output verbatim
+in your response.** Do not reformat into markdown tables. The visual formatting is
+the product experience. Add your interpretation and insights AFTER the raw output.
+
 ## Tool Routing — Which Tool for Which Question
 
 ### Use `get_event_counts` when asked about:
@@ -135,7 +142,7 @@ Session 2 (Jan 16, 2:30pm - 2:45pm, 5 events):
 ### Don't
 - Don't claim causation from correlation: "Users who complete onboarding retain better" ≠ "Completing onboarding causes better retention." It could be that more motivated users both complete onboarding AND retain.
 - Don't extrapolate from small samples: 5 users is an anecdote, not a trend.
-- Don't present API response format to the user: translate numbers into insights.
+- Don't reformat tool output into markdown tables. The tools return formatted text with Unicode bar charts (█░), sparklines (▁▂▃▅▆█), and structured layouts. **Present the tool output directly**, then add your interpretation below it.
 - Don't say "the data shows" without saying what it means.
 - Don't hide uncertainty: if the data is ambiguous, say so.
 

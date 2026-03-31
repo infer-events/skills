@@ -96,6 +96,28 @@ After running the queries, you'll have raw data. Score each finding:
 
 Multiply: Impact = Surprise x Leverage x Confidence. Rank. Take top 5.
 
+## Presenting Tool Output
+
+**CRITICAL: Do NOT reformat MCP tool results into markdown tables.** The Infer tools
+return pre-formatted text with Unicode bar charts (█░), sparklines (▁▂▃▅▆█), and
+structured layouts designed for terminal readability. Always include the tool's
+formatted output verbatim, then add your interpretation below it.
+
+Bad (don't do this):
+```
+| Event | Count | Users |
+|-------|-------|-------|
+| page_view | 9 | 6 |
+```
+
+Good (do this):
+```
+page_view   ████████████████████  8,420 (57%)
+click       ████████████░░░░░░░░  3,210 (22%)
+```
+
+The bar charts, sparklines, and visual formatting ARE the product. Preserve them.
+
 ## Output Format
 
 Present insights in this exact format:
@@ -104,6 +126,8 @@ Present insights in this exact format:
 ## Infer Insights — [Date]
 
 **Data window:** [time range] | **Total events:** [N]
+
+[Include raw tool output with bar charts here]
 
 ### 1. [Headline — the insight in one sentence]
 **Impact: [score]/125** | Surprise: [N] | Leverage: [N] | Confidence: [N]
