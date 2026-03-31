@@ -5,7 +5,7 @@ Agent skills for [Infer](https://infer.events) — headless analytics for AI-fir
 ## Install
 
 ```
-npx skills add @inferevents/skills
+npx skills add infer-events/skills
 ```
 
 Then run `/infer-setup` in Claude Code. The wizard handles everything:
@@ -23,6 +23,7 @@ Then run `/infer-setup` in Claude Code. The wizard handles everything:
 | **infer-analytics** | Auto-loaded when querying | Teaches agents to interpret retention, funnels, benchmarks |
 | **infer-insights** | "Give me insights" | Automated discovery of top 5 impactful findings |
 | **infer-tracking-plan** | "What should I track?" | Reads your codebase, proposes events with file:line references |
+| **infer-upgrade** | `/infer-upgrade` | Updates SDK, MCP server, and skills to latest versions |
 
 ## How it works
 
@@ -55,6 +56,7 @@ infer-setup     ──────────►    get_event_counts           
 infer-analytics ──────────►    get_retention        ◄──────────     track()
 infer-insights  ──────────►    get_user_journey                     identify()
 infer-tracking-plan            get_top_events                       page()
+infer-upgrade                  (updates all components)
 ```
 
 Skills teach the agent WHAT to do. MCP tools do the actual queries. SDK collects the data.
