@@ -1,6 +1,6 @@
 ---
 name: infer-tracking-plan
-description: Use when the user wants to know what events to track, needs a tracking plan, or after installing the Infer SDK. Triggers on "what should I track", "suggest events", "tracking plan", "add tracking", or when the setup wizard reaches the custom tracking step.
+description: Use when the user wants to ADD NEW tracking events to their codebase, needs a tracking plan, or after installing the Infer SDK. Triggers on "what should I track", "suggest events", "tracking plan", "add tracking". Do NOT use for checking live data or querying existing events — use the get_top_events MCP tool for that.
 ---
 
 # Infer Tracking Plan — Codebase-Driven Event Discovery
