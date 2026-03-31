@@ -73,7 +73,9 @@ npx --yes @inferevents/mcp@latest --version 2>/dev/null || true
 If `.mcp.json` exists in the project, check the MCP config uses `npx @inferevents/mcp`
 (not a pinned version). If it's pinned, update the pin.
 
-Tell the user: "MCP server updated. **Restart Claude Code** for the new version to load."
+After updating, reload the MCP server in-place so the user doesn't have to restart:
+
+Tell the user: "MCP server updated. Type `/mcp` and restart the `infer` server to load the new version. No need to exit Claude Code."
 
 ### 3c: Update skills
 
@@ -95,7 +97,7 @@ echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"sdk\":\"SDK_LATEST\",\"m
 ## Step 4: Verify
 
 1. Call `get_top_events(time_range="last_24h")` to verify MCP still works
-2. If it fails: "MCP server needs a restart. Please restart Claude Code."
+2. If it fails: "MCP server needs a reload. Type `/mcp` and restart the `infer` server."
 3. If it works: "All Infer components updated and verified."
 
 ## Summary format
@@ -105,10 +107,10 @@ Infer Upgrade Complete
 ──────────────────────────────────────
 
 SDK     0.1.2 → 0.1.3   Updated
-MCP     0.1.2 → 0.1.3   Updated (restart Claude Code)
+MCP     0.1.2 → 0.1.3   Updated
 Skills  ────────────────  Re-installed from GitHub
 
-Restart Claude Code to load the new MCP server.
+Type /mcp → restart "infer" to load the new MCP server.
 ```
 
 If everything was already up to date:
