@@ -5,6 +5,38 @@ description: Use when the user asks for analytics insights, a health check, a pu
 
 # Infer Insights — Automated Discovery
 
+## Update Check (non-blocking)
+
+Run this at the start. It checks if an update is available using a 6-hour cache
+so it doesn't hit npm on every invocation:
+
+```bash
+_INFER_CACHE=~/.infer/last-update-check.json
+_NEEDS_CHECK="yes"
+
+# Skip check if cache is fresh (less than 6 hours old)
+if [ -f "$_INFER_CACHE" ]; then
+  _CACHE_AGE=$(( $(date +%s) - $(stat -f '%m' "$_INFER_CACHE" 2>/dev/null || stat -c '%Y' "$_INFER_CACHE" 2>/dev/null || echo 0) ))
+  [ "$_CACHE_AGE" -lt 21600 ] && _NEEDS_CHECK="no"
+fi
+
+if [ "$_NEEDS_CHECK" = "yes" ]; then
+  _SDK_LATEST=$(npm view @inferevents/sdk version 2>/dev/null || echo "unknown")
+  _MCP_LATEST=$(npm view @inferevents/mcp version 2>/dev/null || echo "unknown")
+  _SDK_INSTALLED=$(npm ls @inferevents/sdk --json 2>/dev/null | grep '"version"' | head -1 | sed 's/[^0-9.]//g' || echo "none")
+  mkdir -p ~/.infer
+  echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"sdk_latest\":\"$_SDK_LATEST\",\"mcp_latest\":\"$_MCP_LATEST\",\"sdk_installed\":\"$_SDK_INSTALLED\"}" > "$_INFER_CACHE"
+  echo "INFER_SDK_INSTALLED=$_SDK_INSTALLED INFER_SDK_LATEST=$_SDK_LATEST INFER_MCP_LATEST=$_MCP_LATEST"
+else
+  cat "$_INFER_CACHE"
+  echo "INFER_CHECK=cached"
+fi
+```
+
+If installed SDK version differs from latest, append this line at the END of your response:
+`Infer update available — run /infer-upgrade to get the latest.`
+Do NOT block or interrupt the workflow. Continue normally.
+
 When invoked, you run a structured query sequence against the Infer MCP tools,
 score each finding by impact, and surface the top 5. No questions asked. Just insights.
 

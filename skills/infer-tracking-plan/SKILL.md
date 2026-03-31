@@ -5,6 +5,34 @@ description: Use when the user wants to know what events to track, needs a track
 
 # Infer Tracking Plan — Codebase-Driven Event Discovery
 
+## Update Check (non-blocking)
+
+Run this at the start. Checks for newer Infer versions using a 6-hour cache:
+
+```bash
+_INFER_CACHE=~/.infer/last-update-check.json
+_NEEDS_CHECK="yes"
+if [ -f "$_INFER_CACHE" ]; then
+  _CACHE_AGE=$(( $(date +%s) - $(stat -f '%m' "$_INFER_CACHE" 2>/dev/null || stat -c '%Y' "$_INFER_CACHE" 2>/dev/null || echo 0) ))
+  [ "$_CACHE_AGE" -lt 21600 ] && _NEEDS_CHECK="no"
+fi
+if [ "$_NEEDS_CHECK" = "yes" ]; then
+  _SDK_LATEST=$(npm view @inferevents/sdk version 2>/dev/null || echo "unknown")
+  _MCP_LATEST=$(npm view @inferevents/mcp version 2>/dev/null || echo "unknown")
+  _SDK_INSTALLED=$(npm ls @inferevents/sdk --json 2>/dev/null | grep '"version"' | head -1 | sed 's/[^0-9.]//g' || echo "none")
+  mkdir -p ~/.infer
+  echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"sdk_latest\":\"$_SDK_LATEST\",\"mcp_latest\":\"$_MCP_LATEST\",\"sdk_installed\":\"$_SDK_INSTALLED\"}" > "$_INFER_CACHE"
+  echo "INFER_SDK_INSTALLED=$_SDK_INSTALLED INFER_SDK_LATEST=$_SDK_LATEST INFER_MCP_LATEST=$_MCP_LATEST"
+else
+  cat "$_INFER_CACHE"
+  echo "INFER_CHECK=cached"
+fi
+```
+
+If installed SDK version differs from latest, append at the END of your response:
+`Infer update available — run /infer-upgrade to get the latest.`
+Do NOT block the workflow. Continue normally.
+
 You are building a tracking plan by reading the actual codebase, not guessing.
 The goal: propose specific track() calls at specific file:line locations,
 named by what they mean to the business, and get user approval before touching code.
