@@ -37,6 +37,17 @@ If installed SDK version differs from latest, append this line at the END of you
 `Infer update available — run /infer-upgrade to get the latest.`
 Do NOT block or interrupt the workflow. Continue normally.
 
+## STEP ZERO: Always call get_insights first
+
+Before running any manual queries, call `get_insights()` to check for pre-computed
+anomalies and notable patterns. The Infer backend detects these automatically every hour.
+If insights exist, present them first, then decide whether the manual query sequence
+is still needed.
+
+If `get_insights` returns "No new insights", proceed to the manual query sequence below.
+If it returns findings, present them and only run additional queries if the user asks
+for deeper analysis.
+
 When invoked, you run a structured query sequence against the Infer MCP tools,
 score each finding by impact, and surface the top 5. No questions asked. Just insights.
 
