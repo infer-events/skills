@@ -80,50 +80,61 @@ Add to the user's Claude Code MCP config (settings.json or claude_desktop_config
 Ask: "I need to add the Infer MCP server to your Claude Code config. OK?"
 After adding, the user may need to restart Claude Code for MCP to connect.
 
-### Step 2: Check credentials
+### Step 2: Check existing account
 
 Read `~/.infer/config.json`. Three possible states:
 
-**State: Config exists with valid read key**
-→ Say: "Found existing Infer config (project: [id]). Skipping auth."
-→ Jump to Step 4.
+**State A: Config exists with projects**
+The user already has an Infer account. Check if the current directory already has
+Infer configured (check `package.json` for `@inferevents/sdk` in dependencies).
 
-**State: Config exists but key is invalid or expired**
-→ Say: "Found Infer config but the key seems invalid. Let's reconnect."
-→ Proceed to Step 3.
+If SDK is already installed:
+→ Say: "This project already has Infer configured (project: [active project name])."
+→ Ask: "Want to keep this config, switch to a different project, or create a new one?"
+  A) Keep current config → Jump to Step 4 (verify)
+  B) Switch project → Call `switch_project` MCP tool to list and select
+  C) Create new project → Go to Step 3
 
-**State: No config file**
-→ Say: "No Infer account connected. Let's get you set up."
-→ Proceed to Step 3.
+If SDK is NOT installed:
+→ Say: "Found your Infer account ([N] projects). Let's set up this codebase."
+→ Ask: "Use an existing project or create a new one?"
+  A) Use existing → Call `switch_project` to select, then jump to Step 5 (detect project)
+  B) Create new → Go to Step 3
 
-### Step 3: Connect account
+**State B: Config exists but empty/invalid**
+→ Say: "Found Infer config but it's invalid. Let's reconnect."
+→ Go to Step 3.
 
-Ask the user:
+**State C: No config file**
+→ Say: "No Infer account found. Let's get you set up."
+→ Ask: "Do you have an Infer account?"
+  A) Yes, I have my keys → Ask for read key + write key, save to config, jump to Step 5
+  B) No, I need to sign up → Open https://infer.events/signup in browser.
+     After signup, the dashboard shows a setup command. Paste it here.
+     When they paste it, extract the credentials AND the session token,
+     save everything to `~/.infer/config.json` (session token enables
+     future project creation from the CLI without re-authenticating).
 
-> Do you have an Infer account?
-> A) Yes, I have my keys
-> B) No, I need to sign up
+### Step 3: Create new project (CLI-first)
 
-**If A (has keys):**
-Ask: "Paste your read key (starts with pk_read_) and write key (starts with pk_write_)."
-Save read key to `~/.infer/config.json`:
-```json
-{
-  "apiKey": "pk_read_...",
-  "endpoint": "https://api.infer.events",
-  "projectId": "extracted from key or asked"
-}
-```
-Hold the write key for Step 4.
+This runs entirely in the CLI. No website redirect needed.
 
-**If B (needs signup):**
-Say: "Opening infer.events/signup in your browser. Create an account there, then
-paste the setup command it gives you back here."
+Ask: "What should we call this project?" (suggest: the current directory name)
 
-Run: `open https://infer.events/signup` (or the appropriate URL)
+Then call the `create_project` MCP tool with the project name. This:
+1. Reads the saved session token from `~/.infer/config.json`
+2. Calls the Infer API to create a new project
+3. Generates write + read API keys
+4. Saves the new project to `~/.infer/config.json` as the active project
 
-Wait for the user to paste back the setup prompt or keys. When they do,
-extract the credentials and save to `~/.infer/config.json`.
+If the tool returns "No session found": the user needs to sign in first.
+Say: "You need to sign in once. Opening infer.events/signup..."
+After they complete signup and paste the setup command, extract the session token
+and retry the project creation.
+
+After project creation succeeds:
+→ Say: "Project '[name]' created! Write key and config saved."
+→ Jump to Step 5 (detect project).
 
 ### Step 4: Verify MCP connection
 
