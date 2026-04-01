@@ -354,6 +354,7 @@ detection, tracking integration, verification.
 | 401 from API | Invalid or wrong key type | Write key for SDK, read key for MCP |
 | SDK not initializing | SSR calling init() | Check `typeof window !== "undefined"` guard |
 | MCP server can't connect | Wrong endpoint or read key | Check ~/.infer/config.json |
+| "Failed to reconnect" after upgrade | .mcp.json has pinned version (@inferevents/mcp@0.1.6) | Change args to `["@inferevents/mcp"]` (no version), then /mcp restart |
 | Auto-track not firing | autoTrack not set | Set `autoTrack: true` in init() |
 | Console: "Refused to connect" / CSP error | Content Security Policy blocks api.infer.events | Add `https://api.infer.events` to `connect-src` in your CSP header |
 | SDK retries then stops after 5 attempts | CSP or network blocking the endpoint | Check console for the CSP help message, add domain to connect-src |

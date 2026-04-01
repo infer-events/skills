@@ -70,8 +70,19 @@ The MCP runs via `npx @inferevents/mcp` which caches. Clear the cache:
 npx --yes @inferevents/mcp@latest --version 2>/dev/null || true
 ```
 
-If `.mcp.json` exists in the project, check the MCP config uses `npx @inferevents/mcp`
-(not a pinned version). If it's pinned, update the pin.
+Check `.mcp.json` in the project root (and `~/.claude/.mcp.json` globally).
+If the args contain a pinned version like `@inferevents/mcp@0.1.6` or any
+`@inferevents/mcp@X.Y.Z`, replace it with `@inferevents/mcp` (no version).
+This ensures npx always fetches the latest. A pinned version in .mcp.json
+is the #1 cause of "Failed to reconnect" after an upgrade.
+
+```bash
+# Check and fix pinned versions
+if [ -f .mcp.json ] && grep -q '@inferevents/mcp@' .mcp.json; then
+  sed -i '' 's/@inferevents\/mcp@[0-9.]*/@inferevents\/mcp/g' .mcp.json
+  echo "Fixed pinned MCP version in .mcp.json"
+fi
+```
 
 After updating, reload the MCP server in-place so the user doesn't have to restart:
 
