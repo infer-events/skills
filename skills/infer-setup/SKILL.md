@@ -128,16 +128,22 @@ If the config has a `session` field but no project keys, fetch them from the API
 2. If user has one project:
    - Call `GET /v1/auth/project-keys?session=SESSION&project_id=PROJECT_ID`
    - Save the returned write_key and read_key to `~/.infer/config.json`
+   - Write `.infer.json` to project root: `{"project": "<project-slug>"}`
+   - Add `.infer.json` to `.gitignore`
    - Jump to Step 4 (verify MCP)
 3. If user has multiple projects:
    - Ask which project to use for this codebase
    - Fetch keys for the chosen project
    - Save to config as active project
+   - Write `.infer.json` to project root with chosen project
+   - Add `.infer.json` to `.gitignore`
 4. If user has no projects:
    - Go to Step 3 (create new project)
 
 This step is the magic: the user never sees or handles API keys. The session
 token authenticates, the API returns the keys, and they're saved automatically.
+The `.infer.json` file in the project root pins this directory to the correct
+project so the MCP server auto-selects it regardless of the global activeProject.
 
 ### Step 3: Create new project (CLI-first)
 
@@ -157,7 +163,11 @@ After they complete signup and paste the setup command, extract the session toke
 and retry the project creation.
 
 After project creation succeeds:
-→ Say: "Project '[name]' created! Write key and config saved."
+→ Write `.infer.json` to the project root: `{"project": "<project-slug>"}`
+  This pins this directory to the project so the MCP server auto-selects it.
+→ Add `.infer.json` to the project's `.gitignore` (it contains no secrets,
+  but it's machine-specific like .env.local).
+→ Say: "Project '[name]' created! Config saved. This directory is now linked to it."
 → Jump to Step 5 (detect project).
 
 ### Step 4: Verify MCP connection
