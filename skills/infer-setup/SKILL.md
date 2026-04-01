@@ -271,6 +271,23 @@ import { initAnalytics } from "./lib/analytics";
 initAnalytics();
 ```
 
+### Step 7b: Check for Content Security Policy
+
+After integrating the SDK, check if the project has a CSP that would block
+requests to `api.infer.events`. Search for Content-Security-Policy in:
+- `next.config.ts` / `next.config.js` (Next.js headers)
+- `middleware.ts` (Next.js middleware)
+- `<meta http-equiv="Content-Security-Policy">` in HTML
+- `.htaccess`, `nginx.conf`, `vercel.json` headers
+
+If a CSP with `connect-src` is found and does NOT include `api.infer.events`:
+→ Say: "Your site has a Content Security Policy. I need to add api.infer.events
+   to connect-src so the SDK can send events."
+→ Add `https://api.infer.events` to the existing `connect-src` directive.
+→ Ask before making the change.
+
+If no CSP is found, skip this step silently.
+
 ### Step 8: Build tracking plan
 
 Ask: "Want me to analyze your codebase and suggest what events to track?"
@@ -338,3 +355,5 @@ detection, tracking integration, verification.
 | SDK not initializing | SSR calling init() | Check `typeof window !== "undefined"` guard |
 | MCP server can't connect | Wrong endpoint or read key | Check ~/.infer/config.json |
 | Auto-track not firing | autoTrack not set | Set `autoTrack: true` in init() |
+| Console: "Refused to connect" / CSP error | Content Security Policy blocks api.infer.events | Add `https://api.infer.events` to `connect-src` in your CSP header |
+| SDK retries then stops after 5 attempts | CSP or network blocking the endpoint | Check console for the CSP help message, add domain to connect-src |
