@@ -63,24 +63,3 @@ Agent calls get_retention, reads infer-analytics skill, interprets:
   Check your onboarding flow.
 ```
 
-## Architecture
-
-```
-Skills (this package)          MCP Server (@inferevents/mcp)       SDK (@inferevents/sdk)
-~/.claude/skills/infer/        Connected as MCP server              Installed in your app
-
-                               get_insights (hourly push)
-infer-setup     ──────────►    get_event_counts                     init()
-infer-analytics ──────────►    get_retention        ◄──────────     track()
-infer-insights  ──────────►    get_user_journey                     identify()
-infer-tracking-plan            get_top_events                       page()
-infer-upgrade                  (updates all components)
-
-                               Cloudflare Cron (hourly)
-                               ────────────────────────
-                               8 insight queries per project
-                               → writes to insights table
-                               → get_insights reads them
-```
-
-Skills teach the agent WHAT to do. MCP tools do the queries. The cron detects anomalies. SDK collects the data.
