@@ -105,15 +105,39 @@ If SDK is NOT installed:
 → Say: "Found Infer config but it's invalid. Let's reconnect."
 → Go to Step 3.
 
-**State C: No config file**
+**State C: Config exists with session but no projects (new signup)**
+The user just signed up. The config has `{"endpoint":"...","session":"abc123"}`
+but no projects yet. This is the normal state after pasting the signup command.
+→ Say: "Found your Infer session. Let me fetch your project."
+→ Go to Step 2b (fetch keys).
+
+**State D: No config file**
 → Say: "No Infer account found. Let's get you set up."
 → Ask: "Do you have an Infer account?"
-  A) Yes, I have my keys → Ask for read key + write key, save to config, jump to Step 5
-  B) No, I need to sign up → Open https://infer.events/signup in browser.
-     After signup, the dashboard shows a setup command. Paste it here.
-     When they paste it, extract the credentials AND the session token,
-     save everything to `~/.infer/config.json` (session token enables
-     future project creation from the CLI without re-authenticating).
+  A) Yes → Open https://infer.events/signup, sign in, paste the setup command here.
+  B) No → Open https://infer.events/signup, create an account, paste the setup command.
+
+When they paste it, the config is saved to `~/.infer/config.json` with a session
+token. Proceed to Step 2b.
+
+### Step 2b: Fetch project keys via session
+
+If the config has a `session` field but no project keys, fetch them from the API.
+
+1. Call `GET /v1/auth/me?session=SESSION` to get the user's project list
+2. If user has one project:
+   - Call `GET /v1/auth/project-keys?session=SESSION&project_id=PROJECT_ID`
+   - Save the returned write_key and read_key to `~/.infer/config.json`
+   - Jump to Step 4 (verify MCP)
+3. If user has multiple projects:
+   - Ask which project to use for this codebase
+   - Fetch keys for the chosen project
+   - Save to config as active project
+4. If user has no projects:
+   - Go to Step 3 (create new project)
+
+This step is the magic: the user never sees or handles API keys. The session
+token authenticates, the API returns the keys, and they're saved automatically.
 
 ### Step 3: Create new project (CLI-first)
 
