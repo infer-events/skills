@@ -110,7 +110,7 @@ Save read key to `~/.infer/config.json`:
 ```json
 {
   "apiKey": "pk_read_...",
-  "endpoint": "https://infer-api.johnlim5847.workers.dev",
+  "endpoint": "https://api.infer.events",
   "projectId": "extracted from key or asked"
 }
 ```
