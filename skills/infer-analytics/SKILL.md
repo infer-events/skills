@@ -311,6 +311,39 @@ Noteworthy: [anything unusual or worth investigating]
 
 7. **Never present averages without distribution context.** "Average session length is 5 minutes" could mean everyone stays 5 minutes, or half stay 10 seconds and half stay 10 minutes. If you have group_by data, mention the spread.
 
+## When You Can't Answer: Suggest What to Track
+
+When a query returns zero results or you can't answer a question because the data doesn't exist, **don't just say "no data."** Help the user close the gap.
+
+### What to do
+
+1. Identify what event is missing. Map the user's question to what track() call would answer it:
+   - "What's my retention?" → needs a return event like `feature_used` or `login`
+   - "How's the checkout funnel?" → needs `checkout_started`, `payment_submitted`, etc.
+   - "Which feature is most used?" → needs per-feature tracking like `feature_x_used`
+
+2. Suggest the exact track() call with the ontology category:
+   ```
+   To answer this, you'd need to track this event:
+
+   track('checkout_completed', { amount: number, method: string }, { category: 'monetization' })
+   ```
+
+3. If you have access to the codebase (you're in an IDE or CLI), go further — identify the exact file and location:
+   ```
+   I'd suggest adding this in src/app/api/checkout/route.ts after the payment succeeds:
+
+   track('checkout_completed', { amount: order.total, method: paymentMethod }, { category: 'monetization' })
+   ```
+
+4. Offer to run the full tracking plan: "Want me to run `/infer-tracking-plan` to scan your codebase and suggest all missing events?"
+
+### Rules
+- Always suggest business-meaningful event names (`checkout_completed`, not `api_post_success`)
+- Always include the category hint (activation, engagement, monetization, referral)
+- Include 2-4 relevant properties, no PII
+- If you're not sure which file, say so — don't guess file paths
+
 ## After Every Query: Suggest Next Steps
 
 After presenting results, you MUST call the `AskUserQuestion` tool to suggest
