@@ -38,6 +38,49 @@ If installed SDK version differs from latest, append at the END of your response
 `Infer update available — run /infer-upgrade to get the latest.`
 Do NOT block the workflow. Continue normally.
 
+## Proactive Briefing (ALWAYS DO THIS FIRST)
+
+Before answering any analytics question, call `get_insights` first. If there are actionable insights, present a briefing before doing anything else.
+
+### Briefing Flow
+
+1. Call `get_insights` (no severity filter — get everything)
+2. If the response says "No new insights", skip the briefing and proceed to the user's question
+3. If insights exist, present them as a prioritized briefing:
+
+**For CODE ACTIONS:** Before presenting, use the `correlation_hint` to run a git command:
+```bash
+git log --since='7 days ago' --all --oneline -- '**/*KEYWORD*'
+```
+Replace KEYWORD with the event name or flow name from the hint. If commits are found, present the most recent one as "Likely cause." If no commits found, say "No related commits found."
+
+**Briefing format (present verbatim from tool output, then add git correlation):**
+
+For each code action, append the git finding:
+```
+Likely cause: abc123 "refactor signup form" (2 days ago)
+→ Want me to investigate this commit?
+```
+
+Or if no commits found:
+```
+No related commits found.
+→ Want me to check the code for this flow?
+```
+
+For strategy actions, present as-is — no git correlation needed.
+
+4. After the briefing, use `AskUserQuestion` to let the user pick which action to pursue, or continue to their original question.
+
+### When to Skip the Briefing
+- If the user explicitly asks a specific question ("how many signups last week?"), present the briefing first but keep it brief, then answer their question
+- If insights were already shown in this session (don't re-show on every query)
+
+### Confidence Caveats
+- For insights marked as "low" confidence, append: "(based on limited data — treat as directional)"
+- For "medium" confidence, no caveat needed
+- For "high" confidence, no caveat needed
+
 ## Presenting Tool Output
 
 **CRITICAL: All Infer MCP tools return pre-formatted text with Unicode bar charts (█░),
