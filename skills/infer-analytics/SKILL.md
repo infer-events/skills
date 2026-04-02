@@ -63,6 +63,20 @@ the product experience. Add your interpretation and insights AFTER the raw outpu
 - "How does retention compare month over month?" — look at cohort trends
 - Anything involving repeat usage, churn, stickiness, or engagement over time
 
+### Use `get_ontology` when asked about:
+- "What categories are my events in?" — view the event ontology
+- "How is my funnel structured?" — see activation, engagement, monetization stages
+- "Which events are noise?" — filter by category
+- "What's my product funnel?" — ontology shows the event-to-category mapping
+- Anything about event classification, product categories, or funnel structure
+
+### Use `update_ontology` when:
+- The user wants to classify events into categories (activation, engagement, monetization, referral, noise)
+- After reviewing `get_top_events`, propose categories for unclassified events
+- Set `status: "proposed"` when suggesting, `status: "confirmed"` when the user approves
+- Include `funnel_stage` numbers to define funnel order (0 = earliest)
+- Use `success_indicator: true` for events that represent successful outcomes
+
 ### Use `get_user_journey` when asked about:
 - "What did user X do?" — full event timeline
 - "Show me this user's activity" — chronological event list

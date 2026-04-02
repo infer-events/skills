@@ -39,7 +39,20 @@ If installed SDK version differs from latest, append this line at the END of you
 `Infer update available — run /infer-upgrade to get the latest.`
 Do NOT block or interrupt the workflow. Continue normally.
 
-## STEP ZERO: Always call get_insights first
+## STEP ZERO: Check ontology and insights
+
+Before running manual queries, call `get_ontology()` to see if events are classified
+into product categories (activation, engagement, monetization, referral, noise).
+If ontology exists, use it to:
+- Focus on activation and monetization events for funnel analysis
+- Skip "noise" events in health checks
+- Calculate activation rate = activation_events / total_signups
+- Weight insights by category (monetization issues > noise issues)
+
+If no ontology exists, suggest: "Your events aren't categorized yet. Run
+/infer-tracking-plan or use `update_ontology` to classify them for richer insights."
+
+## Then: Always call get_insights
 
 Before running any manual queries, call `get_insights()` to check for pre-computed
 anomalies and notable patterns. The Infer backend detects these automatically every hour.

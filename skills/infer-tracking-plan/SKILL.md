@@ -132,7 +132,7 @@ For each proposed event, document:
 | Event name | snake_case, business-meaningful (not technical) |
 | File | Exact file path |
 | Location | Function/handler name or line context |
-| Category | entry / activation / core / engagement / retention |
+| Category | activation / engagement / monetization / referral / noise |
 | Properties | What data to include (key: type) |
 | Why | Why this event matters for analytics |
 
@@ -231,6 +231,15 @@ import { track } from "@/lib/analytics";
 // After the state mutation succeeds:
 track("status_changed", { from: "draft", to: "published" });
 ```
+
+When adding track() calls, include the category hint as the third argument:
+```typescript
+track("signup_completed", { method: "email" }, { category: "activation" });
+track("project_created", { type: "blank" }, { category: "engagement" });
+track("plan_upgraded", { plan: "pro" }, { category: "monetization" });
+track("invite_sent", { role: "editor" }, { category: "referral" });
+```
+This auto-classifies events in the ontology on first ingestion.
 
 **Add identify() at the auth boundary:**
 Find where the app resolves the current user (after login, after OAuth callback,
