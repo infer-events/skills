@@ -287,6 +287,24 @@ If the app is new (< 7 days of data or < 50 total events):
 **Check back in [N] days.** I'll have something useful by then.
 ```
 
+Even with limited data, ALWAYS use `AskUserQuestion` to suggest what the user can do now:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Not enough data for insights yet, but here's what you can do now.\n\n💡 **Tip:** Events need a few days to accumulate. Set up daily monitoring and you'll get notified when there's enough data.",
+    header: "Next",
+    options: [
+      { label: "Check what events are tracked", description: "See which events the SDK is collecting right now" },
+      { label: "Add more tracking", description: "Run /infer-tracking-plan to track key user actions in your codebase" },
+      { label: "Set up daily monitoring", description: "Schedule automatic checks with /schedule so you don't have to remember" },
+      { label: "View a specific user's journey", description: "Pick a user to see exactly what they did in your app" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
 ## Automated Mode (via /schedule or /loop)
 
 When triggered by a schedule, run the full query sequence silently.
