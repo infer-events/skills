@@ -134,3 +134,23 @@ SDK     0.1.3   Latest
 MCP     0.1.3   Latest
 Skills  ──────  Re-installed (always pulls latest)
 ```
+
+## Step 5: Suggest next steps
+
+After upgrade completes, ALWAYS use `AskUserQuestion`:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Upgrade complete. What do you want to do next?\n\n💡 **Tip:** After upgrading, it's a good idea to verify your events are still flowing correctly.",
+    header: "Next",
+    options: [
+      { label: "Verify events are flowing", description: "Quick check that the SDK is sending data correctly after the upgrade" },
+      { label: "Run a health check", description: "See current insights and make sure nothing broke" },
+      { label: "Check what's new", description: "Show me what changed in the latest version" },
+      { label: "Back to work", description: "Everything looks good, I'll continue what I was doing" }
+    ],
+    multiSelect: false
+  }]
+})
+```

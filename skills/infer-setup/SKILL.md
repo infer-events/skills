@@ -323,19 +323,31 @@ Say: "Let me verify everything is working."
 4. If events found: "✓ Events flowing. [N] events received."
 5. If no events: troubleshoot (check write key, check console errors, check app is running)
 
-### Step 10: Suggest automation
+### Step 10: Suggest next steps
 
-Say:
+After setup is complete, ALWAYS use `AskUserQuestion` to guide the user.
 
-> Everything is set up! Here are some things you can ask me:
->
-> - "What's happening in my app?" — quick overview
-> - "What's my retention?" — are users coming back?
-> - "Show me top events" — what users do most
->
-> For automated monitoring:
-> - `/schedule daily "Run Infer analytics health check"`
-> - `/loop 24h "Check analytics and flag anything unusual"`
+Check the user's CLAUDE.md and conversation memory for role context:
+- **PM**: emphasize tracking plan and funnel visibility
+- **Growth**: emphasize conversion tracking and monitoring
+- **Founder**: emphasize retention and PMF signals
+- **Engineer**: emphasize verification and error tracking
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Setup complete! What do you want to do first?\n\n💡 **Tip:** Run /infer-tracking-plan to have your agent read your codebase and suggest exactly what to track.",
+    header: "Next",
+    options: [
+      { label: "Set up tracking plan", description: "I'll read your codebase and suggest which user actions to track" },
+      { label: "See my first insights", description: "Run a quick health check on whatever data is flowing" },
+      { label: "Set up daily monitoring", description: "Schedule automatic checks so you catch issues early" },
+      { label: "Just explore", description: "I'll ask questions about my data as I go" }
+    ],
+    multiSelect: false
+  }]
+})
+```
 
 ## From the Website: Install Flow
 
