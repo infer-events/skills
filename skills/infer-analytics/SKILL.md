@@ -53,7 +53,12 @@ the product experience. Add your interpretation and insights AFTER the raw outpu
 - "Break down purchases by country" — count with group_by
 - "Compare this week vs last week" — run two queries with different time_ranges
 - "What's our most popular feature?" — count multiple events or group by event property
+- "Which channel brings the most signups?" — group_by: "utm_source"
+- "Which landing page converts best?" — group_by: "landing_page"
+- "Break down by campaign" — group_by: "utm_campaign"
 - Anything involving totals, volumes, frequencies, or distributions
+
+**Available group_by fields:** utm_source, utm_medium, utm_campaign, utm_term, utm_content, landing_page, country, city, os, device_type, browser, referrer, pathname. Also: "source" (alias for utm_source), "medium" (alias for utm_medium), "campaign" (alias for utm_campaign).
 
 ### Use `get_retention` when asked about:
 - "Are users coming back?" — classic retention question
