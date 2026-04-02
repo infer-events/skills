@@ -336,7 +336,7 @@ Use AskUserQuestion:
 
 > Setup complete! What do you want to do first?
 >
-> 💡 **Tip:** Run /infer-tracking-plan to have your agent read your codebase and suggest exactly what to track.
+> 💡 Tip: Run /infer-tracking-plan to have your agent read your codebase and suggest exactly what to track.
 
 Options:
 - A) Set up tracking plan — I'll read your codebase and suggest which user actions to track

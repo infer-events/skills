@@ -197,16 +197,16 @@ Adapt the options: PM → feature adoption, funnel. Growth → channels, convers
 Founder → PMF, retention. Engineer → errors, tracking. Default to founder framing.
 
 **Tip line:** Append a tip after the question. Rotate these, don't repeat in a session:
-`💡 **Tip:** You can schedule this to run daily with /schedule so you never miss a spike`
-`💡 **Tip:** Ask about a specific user's journey to see exactly where they got stuck`
-`💡 **Tip:** Retention improving in newer cohorts? That's the strongest PMF signal`
-`💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest new events`
+`💡 Tip: You can schedule this to run daily with /schedule so you never miss a spike`
+`💡 Tip: Ask about a specific user's journey to see exactly where they got stuck`
+`💡 Tip: Retention improving in newer cohorts? That's the strongest PMF signal`
+`💡 Tip: Ask "what should I track?" and I'll read your codebase to suggest new events`
 
 Use AskUserQuestion. The question is:
 
 > Which insight do you want to dig into?
 >
-> 💡 **Tip:** [rotate from list above]
+> 💡 Tip: [rotate from list above]
 
 Pick 4 options tailored to the ACTUAL findings. Examples:
 
@@ -273,7 +273,7 @@ Even with limited data, you MUST still call the `AskUserQuestion` tool. Use AskU
 
 > Not enough data for insights yet, but here's what you can do now.
 >
-> 💡 **Tip:** Events need a few days to accumulate. Set up daily monitoring and you'll get notified when there's enough data.
+> 💡 Tip: Events need a few days to accumulate. Set up daily monitoring and you'll get notified when there's enough data.
 
 Options:
 - A) Check what events are tracked — See which events the SDK is collecting right now

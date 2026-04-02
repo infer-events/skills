@@ -259,18 +259,18 @@ PM → feature adoption, funnel. Growth → channels, conversion. Founder → PM
 Engineer → errors, tracking. Default to founder framing.
 
 **Tip line:** Append a tip to the question. Rotate these, don't repeat in a session:
-`💡 **Tip:** You can schedule this check to run daily with /schedule`
-`💡 **Tip:** Retention is the single best proxy for product-market fit`
-`💡 **Tip:** Compare two time ranges to spot trends — "this week vs last week"`
-`💡 **Tip:** Group by a property to see which segments behave differently`
-`💡 **Tip:** Zero events usually means a tracking issue, not zero users`
-`💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest events`
+`💡 Tip: You can schedule this check to run daily with /schedule`
+`💡 Tip: Retention is the single best proxy for product-market fit`
+`💡 Tip: Compare two time ranges to spot trends — "this week vs last week"`
+`💡 Tip: Group by a property to see which segments behave differently`
+`💡 Tip: Zero events usually means a tracking issue, not zero users`
+`💡 Tip: Ask "what should I track?" and I'll read your codebase to suggest events`
 
 ### After `get_event_counts` — use AskUserQuestion:
 
 > What do you want to explore next?
 >
-> 💡 **Tip:** [rotate from list above]
+> 💡 Tip: [rotate from list above]
 
 Pick 4 options tailored to the results. Examples:
 - A) Compare to last period — See if this is trending up or down week-over-week
@@ -282,7 +282,7 @@ Pick 4 options tailored to the results. Examples:
 
 > What do you want to explore next?
 >
-> 💡 **Tip:** [rotate from list above]
+> 💡 Tip: [rotate from list above]
 
 Pick 4 options. Examples:
 - A) Compare to previous month — Is retention improving or declining over time?
@@ -294,7 +294,7 @@ Pick 4 options. Examples:
 
 > What do you want to explore next?
 >
-> 💡 **Tip:** [rotate from list above]
+> 💡 Tip: [rotate from list above]
 
 Pick 4 options. Examples:
 - A) Compare with a retained user — See what a user who stuck around did differently

@@ -188,7 +188,7 @@ Then you MUST call the `AskUserQuestion` tool for approval. Use AskUserQuestion:
 
 > Which events should I add to your codebase?
 >
-> 💡 **Tip:** 5-10 custom events is the sweet spot. More creates noise, fewer leaves blind spots.
+> 💡 Tip: 5-10 custom events is the sweet spot. More creates noise, fewer leaves blind spots.
 
 Options:
 - A) Add all events — Implement all N proposed track() calls
@@ -275,7 +275,7 @@ Use AskUserQuestion:
 
 > Tracking is live. What do you want to do next?
 >
-> 💡 **Tip:** Events need a few hours to accumulate. Set up daily monitoring now and check back tomorrow for real insights.
+> 💡 Tip: Events need a few hours to accumulate. Set up daily monitoring now and check back tomorrow for real insights.
 
 Options:
 - A) Check if events are flowing — Verify the SDK is sending data correctly

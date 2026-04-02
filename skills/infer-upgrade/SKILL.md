@@ -143,7 +143,7 @@ After upgrade completes, you MUST call the `AskUserQuestion` tool. Use AskUserQu
 
 > Upgrade complete. What do you want to do next?
 >
-> 💡 **Tip:** After upgrading, it's a good idea to verify your events are still flowing correctly.
+> 💡 Tip: After upgrading, it's a good idea to verify your events are still flowing correctly.
 
 Options:
 - A) Verify events are flowing — Quick check that the SDK is sending data correctly after the upgrade
