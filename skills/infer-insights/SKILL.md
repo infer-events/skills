@@ -185,8 +185,55 @@ Present insights in this exact format:
 
 ---
 **Next check:** [When the next automated run is scheduled, if applicable]
-**Deep dive:** Ask me to investigate any of these further.
 ```
+
+Then ALWAYS use `AskUserQuestion` to suggest next actions based on the findings.
+
+### Role-aware suggestions
+
+Check the user's CLAUDE.md and conversation memory for role context:
+
+- **PM / product manager**: "Which feature drives the most retention?" "Where's the activation bottleneck?"
+- **Growth / marketing**: "Which channel's users retain best?" "Is the new campaign converting?"
+- **Founder / CEO**: "Are we getting closer to PMF?" "What's the biggest risk right now?"
+- **Engineer / developer**: "Which errors should I fix first?" "Is the new deploy affecting metrics?"
+- **Unknown role**: Default to product/founder framing.
+
+### Tip line
+
+Append a tip after the question text. Format: `💡 **Tip:** [one sentence]`
+
+Example tips (rotate, don't repeat in the same session):
+- `💡 **Tip:** You can schedule this to run daily with /schedule so you never miss a spike`
+- `💡 **Tip:** Ask about a specific user's journey to see exactly where they got stuck`
+- `💡 **Tip:** Retention improving in newer cohorts? That's the strongest PMF signal`
+- `💡 **Tip:** High error rate + low retention? Fix the errors first, retention may follow`
+- `💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest new events`
+
+### Example
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which insight do you want to dig into?\n\n💡 **Tip:** You can schedule this to run daily with /schedule so you never miss a spike.",
+    header: "Dig deeper",
+    options: [
+      // Pick 4 options tailored to the ACTUAL findings:
+      { label: "Investigate the retention drop", description: "Look at churned user journeys to find where they fell off" },
+      { label: "Break down signups by source", description: "See which channels are driving growth (or not)" },
+      { label: "Debug the error spike", description: "Trace the errors to specific pages and user actions" },
+      { label: "Set up daily monitoring", description: "Schedule automatic checks so you catch issues early" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+### Rules for insight follow-ups
+- Base the 4 options on the ACTUAL top findings, not generic suggestions.
+- Adapt language to the user's role (see Role-aware suggestions above).
+- One option should always be about setting up automation (/schedule or /loop).
+- Rotate the tip each time. Don't repeat the same tip in a session.
 
 ## Insight Categories (what to look for)
 

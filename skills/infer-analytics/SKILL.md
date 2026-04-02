@@ -242,6 +242,101 @@ Noteworthy: [anything unusual or worth investigating]
 
 7. **Never present averages without distribution context.** "Average session length is 5 minutes" could mean everyone stays 5 minutes, or half stay 10 seconds and half stay 10 minutes. If you have group_by data, mention the spread.
 
+## After Every Query: Suggest Next Steps
+
+After presenting results and your interpretation, ALWAYS use the `AskUserQuestion` tool
+to suggest what the user could do next. This teaches users how to think about their data
+and surfaces analysis paths they wouldn't think to ask for.
+
+### Role-aware suggestions
+
+Check the user's CLAUDE.md and conversation memory for role context. The options you
+suggest should match how that person thinks about data:
+
+- **PM / product manager**: Frame around user behavior, activation, feature adoption,
+  roadmap decisions. "Which feature drives retention?" "Where do users drop off?"
+- **Growth / marketing**: Frame around acquisition, channels, conversion, cohorts.
+  "Which signup source converts best?" "Compare this week's campaign to last week's."
+- **Founder / CEO**: Frame around business health, trajectory, PMF signals.
+  "Is retention improving month over month?" "What's the activation rate trend?"
+- **Engineer / developer**: Frame around debugging, errors, performance, tracking gaps.
+  "Are there errors correlated with this drop?" "Is this event firing correctly?"
+- **Unknown role**: Default to product/founder framing (most common for early-stage).
+
+### Tip line
+
+After the `question` text in every `AskUserQuestion` call, append a tip on a new line.
+The tip teaches users a concept or surfaces a capability they might not know about.
+Format: `💡 **Tip:** [one sentence]`
+
+Example tips (rotate, don't repeat):
+- `💡 **Tip:** You can schedule this check to run daily with /schedule`
+- `💡 **Tip:** Retention is the single best proxy for product-market fit`
+- `💡 **Tip:** Compare two time ranges to spot trends — "this week vs last week"`
+- `💡 **Tip:** Group by a property to see which segments behave differently`
+- `💡 **Tip:** Zero events usually means a tracking issue, not zero users`
+- `💡 **Tip:** Small sample (< 30 users)? Treat findings as directional, not conclusive`
+- `💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest events`
+
+### Examples by query type
+
+After `get_event_counts` results:
+```
+AskUserQuestion({
+  questions: [{
+    question: "What do you want to explore next?\n\n💡 **Tip:** Compare two time ranges to spot whether this is a trend or a blip.",
+    header: "Next",
+    options: [
+      { label: "Compare to last period", description: "See if this is trending up or down week-over-week" },
+      { label: "Break down by [relevant group]", description: "See which segments drive these numbers" },
+      { label: "Check retention for these users", description: "Are the users who did this action coming back?" },
+      { label: "Show me the full funnel", description: "Count each step from signup through this action to see drop-off" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+After `get_retention` results:
+```
+AskUserQuestion({
+  questions: [{
+    question: "What do you want to explore next?\n\n💡 **Tip:** Retention is the single best proxy for product-market fit.",
+    header: "Next",
+    options: [
+      { label: "Compare to previous month", description: "Is retention improving or declining over time?" },
+      { label: "Investigate churned users", description: "Look at the journey of users who didn't come back" },
+      { label: "Check activation funnel", description: "See where new users drop off before becoming active" },
+      { label: "Find what retained users do differently", description: "Compare behavior of users who stayed vs left" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+After `get_user_journey` results:
+```
+AskUserQuestion({
+  questions: [{
+    question: "What do you want to explore next?\n\n💡 **Tip:** Compare this journey to a retained user to spot what's different.",
+    header: "Next",
+    options: [
+      { label: "Compare with a retained user", description: "See what a user who stuck around did differently" },
+      { label: "Check if this pattern is common", description: "Count how many users hit the same sequence" },
+      { label: "Look at error events", description: "See if errors are correlated with this user's experience" },
+      { label: "Check overall retention", description: "Zoom out to see if this reflects a wider trend" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+### Rules for next-step suggestions
+- Make them specific to the data just shown, not generic. If signups are down, suggest investigating why.
+- Adapt language to the user's role (see Role-aware suggestions above).
+- The 4th option should always be the biggest-picture action (zoom out, check overall health, full funnel).
+- Rotate the tip each time. Don't repeat the same tip in a session.
+
 ## Edge Cases and Gotchas
 
 - **Timezone effects**: Events near midnight may appear in different days depending on timezone. If daily counts look weird at period boundaries, this is likely the cause.

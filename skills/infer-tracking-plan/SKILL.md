@@ -180,7 +180,24 @@ With these events, you can answer:
 - "Which users are most engaged?"
 - "Where do users drop off?"
 
-? Approve all? Or select by number (e.g., "1,2,3,5" or "all except 4")
+```
+
+Then use `AskUserQuestion` for approval:
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Which events should I add to your codebase?\n\n💡 **Tip:** 5-10 custom events is the sweet spot. More creates noise, fewer leaves blind spots.",
+    header: "Track",
+    options: [
+      { label: "Add all events", description: "Implement all N proposed track() calls" },
+      { label: "Let me pick", description: "I'll tell you which ones by number (e.g. 1,2,5)" },
+      { label: "Modify the plan first", description: "I want to rename events, change properties, or add new ones" },
+      { label: "Skip for now", description: "Save the plan but don't add any tracking yet" }
+    ],
+    multiSelect: false
+  }]
+})
 ```
 
 ### Phase 6: Implement Approved Events
@@ -252,6 +269,30 @@ To see your data:
 - "What events are being tracked?" → get_top_events
 - "What's my signup-to-search conversion?" → get_event_counts for each step
 - "Show me retention" → get_retention
+```
+
+After implementation, use `AskUserQuestion` to suggest what to do next.
+
+Check the user's CLAUDE.md and conversation memory for role context and tailor accordingly:
+- **PM**: emphasize funnel visibility and feature adoption
+- **Growth**: emphasize conversion and channel attribution
+- **Founder**: emphasize PMF signals and retention
+- **Engineer**: emphasize verification and error monitoring
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Tracking is live. What do you want to do next?\n\n💡 **Tip:** Events need a few hours to accumulate. Set up daily monitoring now and check back tomorrow for real insights.",
+    header: "Next",
+    options: [
+      { label: "Check if events are flowing", description: "Verify the SDK is sending data correctly" },
+      { label: "See my first insights", description: "Run /infer-insights to see what the data shows" },
+      { label: "Set up daily monitoring", description: "Schedule automatic health checks with /schedule" },
+      { label: "View the full funnel", description: "See conversion rates from signup through your core action" }
+    ],
+    multiSelect: false
+  }]
+})
 ```
 
 ## Important Rules
