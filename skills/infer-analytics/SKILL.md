@@ -81,6 +81,43 @@ For strategy actions, present as-is — no git correlation needed.
 - For "medium" confidence, no caveat needed
 - For "high" confidence, no caveat needed
 
+## Decision Context: Check Data Before Editing Tracked Code
+
+When you are about to edit a file, **check if it contains `track()` or `infer.track()` calls first.** If it does, query the relevant events before making changes so you can warn the developer about impact.
+
+### How it works
+
+1. Before editing a file, scan it for `track('event_name'` patterns
+2. For each tracked event found, call `get_event_counts(event_name, time_range="last_7d")`
+3. If any event shows significant volume (100+ events/week) or a notable trend, mention it:
+
+```
+FYI — this file tracks 'checkout_completed' which had 342 events last week (up 15% from previous week).
+Proceeding with the edit.
+```
+
+4. If an event is trending down, flag it more prominently:
+
+```
+Heads up — 'signup_completed' in this file dropped 40% last week (89 vs 150).
+This might be related to the change you're about to make, or it could be pre-existing.
+Want me to investigate before we proceed?
+```
+
+### When to do this
+- When editing files that contain `track()` calls
+- When refactoring or deleting code near tracking calls (risk of breaking tracking)
+- When the user asks you to modify a component that has analytics instrumentation
+
+### When NOT to do this
+- When the user is just reading/exploring code (no edit intent)
+- When the tracked event has very low volume (< 10 events/week) — not worth flagging
+- When you've already checked this file earlier in the session
+- When the user explicitly says to skip the check
+
+### Keep it brief
+This is context, not a blocker. One line is enough. Don't turn every edit into an analytics review. The goal is to make the developer aware, not to slow them down.
+
 ## Presenting Tool Output
 
 **CRITICAL: All Infer MCP tools return pre-formatted text with Unicode bar charts (█░),
