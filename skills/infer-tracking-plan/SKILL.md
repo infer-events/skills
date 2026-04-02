@@ -1,6 +1,8 @@
 ---
 name: infer-tracking-plan
 description: Use when the user wants to ADD NEW tracking events to their codebase, needs a tracking plan, or after installing the Infer SDK. Triggers on "what should I track", "suggest events", "tracking plan", "add tracking". Do NOT use for checking live data or querying existing events — use the get_top_events MCP tool for that.
+allowed-tools:
+  - AskUserQuestion
 ---
 
 # Infer Tracking Plan — Codebase-Driven Event Discovery
@@ -182,23 +184,17 @@ With these events, you can answer:
 
 ```
 
-Then use `AskUserQuestion` for approval:
+Then you MUST call the `AskUserQuestion` tool for approval. Use AskUserQuestion:
 
-```
-AskUserQuestion({
-  questions: [{
-    question: "Which events should I add to your codebase?\n\n💡 **Tip:** 5-10 custom events is the sweet spot. More creates noise, fewer leaves blind spots.",
-    header: "Track",
-    options: [
-      { label: "Add all events", description: "Implement all N proposed track() calls" },
-      { label: "Let me pick", description: "I'll tell you which ones by number (e.g. 1,2,5)" },
-      { label: "Modify the plan first", description: "I want to rename events, change properties, or add new ones" },
-      { label: "Skip for now", description: "Save the plan but don't add any tracking yet" }
-    ],
-    multiSelect: false
-  }]
-})
-```
+> Which events should I add to your codebase?
+>
+> 💡 **Tip:** 5-10 custom events is the sweet spot. More creates noise, fewer leaves blind spots.
+
+Options:
+- A) Add all events — Implement all N proposed track() calls
+- B) Let me pick — I'll tell you which ones by number (e.g. 1,2,5)
+- C) Modify the plan first — I want to rename events, change properties, or add new ones
+- D) Skip for now — Save the plan but don't add any tracking yet
 
 ### Phase 6: Implement Approved Events
 
@@ -271,29 +267,21 @@ To see your data:
 - "Show me retention" → get_retention
 ```
 
-After implementation, use `AskUserQuestion` to suggest what to do next.
+After implementation, you MUST call the `AskUserQuestion` tool.
 
-Check the user's CLAUDE.md and conversation memory for role context and tailor accordingly:
-- **PM**: emphasize funnel visibility and feature adoption
-- **Growth**: emphasize conversion and channel attribution
-- **Founder**: emphasize PMF signals and retention
-- **Engineer**: emphasize verification and error monitoring
+**Role-aware:** PM → funnel visibility. Growth → conversion tracking. Founder → PMF signals. Engineer → verification.
 
-```
-AskUserQuestion({
-  questions: [{
-    question: "Tracking is live. What do you want to do next?\n\n💡 **Tip:** Events need a few hours to accumulate. Set up daily monitoring now and check back tomorrow for real insights.",
-    header: "Next",
-    options: [
-      { label: "Check if events are flowing", description: "Verify the SDK is sending data correctly" },
-      { label: "See my first insights", description: "Run /infer-insights to see what the data shows" },
-      { label: "Set up daily monitoring", description: "Schedule automatic health checks with /schedule" },
-      { label: "View the full funnel", description: "See conversion rates from signup through your core action" }
-    ],
-    multiSelect: false
-  }]
-})
-```
+Use AskUserQuestion:
+
+> Tracking is live. What do you want to do next?
+>
+> 💡 **Tip:** Events need a few hours to accumulate. Set up daily monitoring now and check back tomorrow for real insights.
+
+Options:
+- A) Check if events are flowing — Verify the SDK is sending data correctly
+- B) See my first insights — Run /infer-insights to see what the data shows
+- C) Set up daily monitoring — Schedule automatic health checks with /schedule
+- D) View the full funnel — See conversion rates from signup through your core action
 
 ## Important Rules
 

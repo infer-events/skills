@@ -1,3 +1,10 @@
+---
+name: infer-analytics
+description: Use when the user asks questions about their analytics data, event counts, retention, user journeys, or funnels. Teaches agents how to interpret Infer MCP tool results.
+allowed-tools:
+  - AskUserQuestion
+---
+
 # Infer Analytics — Agent Skill Guide
 
 You have access to product analytics through the Infer MCP server. This guide teaches you how to query data effectively and interpret results like an experienced product analyst.
@@ -244,98 +251,62 @@ Noteworthy: [anything unusual or worth investigating]
 
 ## After Every Query: Suggest Next Steps
 
-After presenting results and your interpretation, ALWAYS use the `AskUserQuestion` tool
-to suggest what the user could do next. This teaches users how to think about their data
-and surfaces analysis paths they wouldn't think to ask for.
+After presenting results, you MUST call the `AskUserQuestion` tool to suggest
+what to explore next. Do NOT skip this. Do NOT present options as plain text.
 
-### Role-aware suggestions
+**Role-aware:** Check the user's CLAUDE.md and conversation memory for role context.
+PM → feature adoption, funnel. Growth → channels, conversion. Founder → PMF, retention.
+Engineer → errors, tracking. Default to founder framing.
 
-Check the user's CLAUDE.md and conversation memory for role context. The options you
-suggest should match how that person thinks about data:
+**Tip line:** Append a tip to the question. Rotate these, don't repeat in a session:
+`💡 **Tip:** You can schedule this check to run daily with /schedule`
+`💡 **Tip:** Retention is the single best proxy for product-market fit`
+`💡 **Tip:** Compare two time ranges to spot trends — "this week vs last week"`
+`💡 **Tip:** Group by a property to see which segments behave differently`
+`💡 **Tip:** Zero events usually means a tracking issue, not zero users`
+`💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest events`
 
-- **PM / product manager**: Frame around user behavior, activation, feature adoption,
-  roadmap decisions. "Which feature drives retention?" "Where do users drop off?"
-- **Growth / marketing**: Frame around acquisition, channels, conversion, cohorts.
-  "Which signup source converts best?" "Compare this week's campaign to last week's."
-- **Founder / CEO**: Frame around business health, trajectory, PMF signals.
-  "Is retention improving month over month?" "What's the activation rate trend?"
-- **Engineer / developer**: Frame around debugging, errors, performance, tracking gaps.
-  "Are there errors correlated with this drop?" "Is this event firing correctly?"
-- **Unknown role**: Default to product/founder framing (most common for early-stage).
+### After `get_event_counts` — use AskUserQuestion:
 
-### Tip line
+> What do you want to explore next?
+>
+> 💡 **Tip:** [rotate from list above]
 
-After the `question` text in every `AskUserQuestion` call, append a tip on a new line.
-The tip teaches users a concept or surfaces a capability they might not know about.
-Format: `💡 **Tip:** [one sentence]`
+Pick 4 options tailored to the results. Examples:
+- A) Compare to last period — See if this is trending up or down week-over-week
+- B) Break down by [relevant group] — See which segments drive these numbers
+- C) Check retention for these users — Are the users who did this action coming back?
+- D) Show me the full funnel — Count each step from signup through this action to see drop-off
 
-Example tips (rotate, don't repeat):
-- `💡 **Tip:** You can schedule this check to run daily with /schedule`
-- `💡 **Tip:** Retention is the single best proxy for product-market fit`
-- `💡 **Tip:** Compare two time ranges to spot trends — "this week vs last week"`
-- `💡 **Tip:** Group by a property to see which segments behave differently`
-- `💡 **Tip:** Zero events usually means a tracking issue, not zero users`
-- `💡 **Tip:** Small sample (< 30 users)? Treat findings as directional, not conclusive`
-- `💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest events`
+### After `get_retention` — use AskUserQuestion:
 
-### Examples by query type
+> What do you want to explore next?
+>
+> 💡 **Tip:** [rotate from list above]
 
-After `get_event_counts` results:
-```
-AskUserQuestion({
-  questions: [{
-    question: "What do you want to explore next?\n\n💡 **Tip:** Compare two time ranges to spot whether this is a trend or a blip.",
-    header: "Next",
-    options: [
-      { label: "Compare to last period", description: "See if this is trending up or down week-over-week" },
-      { label: "Break down by [relevant group]", description: "See which segments drive these numbers" },
-      { label: "Check retention for these users", description: "Are the users who did this action coming back?" },
-      { label: "Show me the full funnel", description: "Count each step from signup through this action to see drop-off" }
-    ],
-    multiSelect: false
-  }]
-})
-```
+Pick 4 options. Examples:
+- A) Compare to previous month — Is retention improving or declining over time?
+- B) Investigate churned users — Look at the journey of users who didn't come back
+- C) Check activation funnel — See where new users drop off before becoming active
+- D) Find what retained users do differently — Compare behavior of users who stayed vs left
 
-After `get_retention` results:
-```
-AskUserQuestion({
-  questions: [{
-    question: "What do you want to explore next?\n\n💡 **Tip:** Retention is the single best proxy for product-market fit.",
-    header: "Next",
-    options: [
-      { label: "Compare to previous month", description: "Is retention improving or declining over time?" },
-      { label: "Investigate churned users", description: "Look at the journey of users who didn't come back" },
-      { label: "Check activation funnel", description: "See where new users drop off before becoming active" },
-      { label: "Find what retained users do differently", description: "Compare behavior of users who stayed vs left" }
-    ],
-    multiSelect: false
-  }]
-})
-```
+### After `get_user_journey` — use AskUserQuestion:
 
-After `get_user_journey` results:
-```
-AskUserQuestion({
-  questions: [{
-    question: "What do you want to explore next?\n\n💡 **Tip:** Compare this journey to a retained user to spot what's different.",
-    header: "Next",
-    options: [
-      { label: "Compare with a retained user", description: "See what a user who stuck around did differently" },
-      { label: "Check if this pattern is common", description: "Count how many users hit the same sequence" },
-      { label: "Look at error events", description: "See if errors are correlated with this user's experience" },
-      { label: "Check overall retention", description: "Zoom out to see if this reflects a wider trend" }
-    ],
-    multiSelect: false
-  }]
-})
-```
+> What do you want to explore next?
+>
+> 💡 **Tip:** [rotate from list above]
 
-### Rules for next-step suggestions
-- Make them specific to the data just shown, not generic. If signups are down, suggest investigating why.
-- Adapt language to the user's role (see Role-aware suggestions above).
-- The 4th option should always be the biggest-picture action (zoom out, check overall health, full funnel).
-- Rotate the tip each time. Don't repeat the same tip in a session.
+Pick 4 options. Examples:
+- A) Compare with a retained user — See what a user who stuck around did differently
+- B) Check if this pattern is common — Count how many users hit the same sequence
+- C) Look at error events — See if errors are correlated with this user's experience
+- D) Check overall retention — Zoom out to see if this reflects a wider trend
+
+### Rules
+- Make options specific to the data just shown. If signups are down, suggest investigating why.
+- Adapt language to the user's role.
+- The 4th option should be the biggest-picture action (zoom out, full funnel).
+- Rotate the tip. Don't repeat in a session.
 
 ## Edge Cases and Gotchas
 

@@ -1,6 +1,8 @@
 ---
 name: infer-insights
 description: Use when the user asks for analytics insights, a health check, a pulse on their app, or says "what should I know about my data." Also use when invoked via /schedule or /loop for automated daily insights.
+allowed-tools:
+  - AskUserQuestion
 ---
 
 # Infer Insights — Automated Discovery
@@ -187,53 +189,33 @@ Present insights in this exact format:
 **Next check:** [When the next automated run is scheduled, if applicable]
 ```
 
-Then ALWAYS use `AskUserQuestion` to suggest next actions based on the findings.
+Then you MUST call the `AskUserQuestion` tool to suggest next actions. Do NOT
+skip this step. Do NOT present options as plain text. You MUST use the tool.
 
-### Role-aware suggestions
+**Role-aware:** Check the user's CLAUDE.md and conversation memory for role context.
+Adapt the options: PM → feature adoption, funnel. Growth → channels, conversion.
+Founder → PMF, retention. Engineer → errors, tracking. Default to founder framing.
 
-Check the user's CLAUDE.md and conversation memory for role context:
+**Tip line:** Append a tip after the question. Rotate these, don't repeat in a session:
+`💡 **Tip:** You can schedule this to run daily with /schedule so you never miss a spike`
+`💡 **Tip:** Ask about a specific user's journey to see exactly where they got stuck`
+`💡 **Tip:** Retention improving in newer cohorts? That's the strongest PMF signal`
+`💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest new events`
 
-- **PM / product manager**: "Which feature drives the most retention?" "Where's the activation bottleneck?"
-- **Growth / marketing**: "Which channel's users retain best?" "Is the new campaign converting?"
-- **Founder / CEO**: "Are we getting closer to PMF?" "What's the biggest risk right now?"
-- **Engineer / developer**: "Which errors should I fix first?" "Is the new deploy affecting metrics?"
-- **Unknown role**: Default to product/founder framing.
+Use AskUserQuestion. The question is:
 
-### Tip line
+> Which insight do you want to dig into?
+>
+> 💡 **Tip:** [rotate from list above]
 
-Append a tip after the question text. Format: `💡 **Tip:** [one sentence]`
+Pick 4 options tailored to the ACTUAL findings. Examples:
 
-Example tips (rotate, don't repeat in the same session):
-- `💡 **Tip:** You can schedule this to run daily with /schedule so you never miss a spike`
-- `💡 **Tip:** Ask about a specific user's journey to see exactly where they got stuck`
-- `💡 **Tip:** Retention improving in newer cohorts? That's the strongest PMF signal`
-- `💡 **Tip:** High error rate + low retention? Fix the errors first, retention may follow`
-- `💡 **Tip:** Ask "what should I track?" and I'll read your codebase to suggest new events`
+- A) Investigate the retention drop — Look at churned user journeys to find where they fell off
+- B) Break down signups by source — See which channels are driving growth (or not)
+- C) Debug the error spike — Trace the errors to specific pages and user actions
+- D) Set up daily monitoring — Schedule automatic checks so you catch issues early
 
-### Example
-
-```
-AskUserQuestion({
-  questions: [{
-    question: "Which insight do you want to dig into?\n\n💡 **Tip:** You can schedule this to run daily with /schedule so you never miss a spike.",
-    header: "Dig deeper",
-    options: [
-      // Pick 4 options tailored to the ACTUAL findings:
-      { label: "Investigate the retention drop", description: "Look at churned user journeys to find where they fell off" },
-      { label: "Break down signups by source", description: "See which channels are driving growth (or not)" },
-      { label: "Debug the error spike", description: "Trace the errors to specific pages and user actions" },
-      { label: "Set up daily monitoring", description: "Schedule automatic checks so you catch issues early" }
-    ],
-    multiSelect: false
-  }]
-})
-```
-
-### Rules for insight follow-ups
-- Base the 4 options on the ACTUAL top findings, not generic suggestions.
-- Adapt language to the user's role (see Role-aware suggestions above).
-- One option should always be about setting up automation (/schedule or /loop).
-- Rotate the tip each time. Don't repeat the same tip in a session.
+One option must always be about setting up automation (/schedule or /loop).
 
 ## Insight Categories (what to look for)
 
@@ -287,23 +269,17 @@ If the app is new (< 7 days of data or < 50 total events):
 **Check back in [N] days.** I'll have something useful by then.
 ```
 
-Even with limited data, ALWAYS use `AskUserQuestion` to suggest what the user can do now:
+Even with limited data, you MUST still call the `AskUserQuestion` tool. Use AskUserQuestion:
 
-```
-AskUserQuestion({
-  questions: [{
-    question: "Not enough data for insights yet, but here's what you can do now.\n\n💡 **Tip:** Events need a few days to accumulate. Set up daily monitoring and you'll get notified when there's enough data.",
-    header: "Next",
-    options: [
-      { label: "Check what events are tracked", description: "See which events the SDK is collecting right now" },
-      { label: "Add more tracking", description: "Run /infer-tracking-plan to track key user actions in your codebase" },
-      { label: "Set up daily monitoring", description: "Schedule automatic checks with /schedule so you don't have to remember" },
-      { label: "View a specific user's journey", description: "Pick a user to see exactly what they did in your app" }
-    ],
-    multiSelect: false
-  }]
-})
-```
+> Not enough data for insights yet, but here's what you can do now.
+>
+> 💡 **Tip:** Events need a few days to accumulate. Set up daily monitoring and you'll get notified when there's enough data.
+
+Options:
+- A) Check what events are tracked — See which events the SDK is collecting right now
+- B) Add more tracking — Run /infer-tracking-plan to track key user actions in your codebase
+- C) Set up daily monitoring — Schedule automatic checks with /schedule so you don't have to remember
+- D) View a specific user's journey — Pick a user to see exactly what they did in your app
 
 ## Automated Mode (via /schedule or /loop)
 

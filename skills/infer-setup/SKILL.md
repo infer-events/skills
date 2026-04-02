@@ -1,6 +1,8 @@
 ---
 name: infer-setup
 description: Use when setting up Infer analytics in a new project, integrating the SDK, or configuring the MCP server. Triggers on "set up analytics", "add tracking", "integrate infer", "install infer", or when a project has no analytics and the user wants to add it.
+allowed-tools:
+  - AskUserQuestion
 ---
 
 # Infer Setup — The Wizard
@@ -325,29 +327,22 @@ Say: "Let me verify everything is working."
 
 ### Step 10: Suggest next steps
 
-After setup is complete, ALWAYS use `AskUserQuestion` to guide the user.
+After setup is complete, you MUST call the `AskUserQuestion` tool.
 
-Check the user's CLAUDE.md and conversation memory for role context:
-- **PM**: emphasize tracking plan and funnel visibility
-- **Growth**: emphasize conversion tracking and monitoring
-- **Founder**: emphasize retention and PMF signals
-- **Engineer**: emphasize verification and error tracking
+**Role-aware:** Check the user's CLAUDE.md and conversation memory. PM → tracking plan, funnel.
+Growth → conversion, monitoring. Founder → retention, PMF. Engineer → verification, errors.
 
-```
-AskUserQuestion({
-  questions: [{
-    question: "Setup complete! What do you want to do first?\n\n💡 **Tip:** Run /infer-tracking-plan to have your agent read your codebase and suggest exactly what to track.",
-    header: "Next",
-    options: [
-      { label: "Set up tracking plan", description: "I'll read your codebase and suggest which user actions to track" },
-      { label: "See my first insights", description: "Run a quick health check on whatever data is flowing" },
-      { label: "Set up daily monitoring", description: "Schedule automatic checks so you catch issues early" },
-      { label: "Just explore", description: "I'll ask questions about my data as I go" }
-    ],
-    multiSelect: false
-  }]
-})
-```
+Use AskUserQuestion:
+
+> Setup complete! What do you want to do first?
+>
+> 💡 **Tip:** Run /infer-tracking-plan to have your agent read your codebase and suggest exactly what to track.
+
+Options:
+- A) Set up tracking plan — I'll read your codebase and suggest which user actions to track
+- B) See my first insights — Run a quick health check on whatever data is flowing
+- C) Set up daily monitoring — Schedule automatic checks so you catch issues early
+- D) Just explore — I'll ask questions about my data as I go
 
 ## From the Website: Install Flow
 
