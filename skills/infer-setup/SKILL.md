@@ -73,7 +73,7 @@ Add to the user's Claude Code MCP config (settings.json or claude_desktop_config
   "mcpServers": {
     "infer": {
       "command": "npx",
-      "args": ["@inferevents/mcp"]
+      "args": ["--yes", "@inferevents/mcp@latest"]
     }
   }
 }
@@ -211,11 +211,6 @@ If `@inferevents/sdk` is already in dependencies:
 Ask: "Install @inferevents/sdk? (This adds the tracking library to your project)"
 
 If yes:
-```bash
-npm install @inferevents/sdk
-```
-
-If SDK is not published to npm yet, install from local path or suggest:
 ```bash
 npm install @inferevents/sdk@latest
 ```
