@@ -46,6 +46,22 @@ everything step by step, asking before each change.
 - **MCP server** (`@inferevents/mcp`): Separate package. Connects to Claude Code as an MCP server. Queries the API.
 - **Skills** (`@inferevents/skills`): This package. Teaches agents how to use Infer.
 
+## Setup Flow
+
+The wizard follows this order:
+
+```
+1. Account setup (signup or login)
+2. Project setup (create or select project, fetch keys)
+3. SDK install + integrate into project code
+4. Tracking plan (read codebase, suggest and add events)
+5. Configure MCP + restart Claude Code
+```
+
+MCP is last because it needs a restart. By doing it last, the restart serves
+double duty: connects MCP AND marks the end of setup. When the user comes back,
+everything is ready — SDK installed, events instrumented, MCP connected.
+
 ## Entry Points
 
 There are two ways users arrive here:
@@ -59,32 +75,9 @@ Look for: `projectId`, `writeKey`, `readKey`, `endpoint` in the pasted text.
 
 ## The Wizard
 
-### Step 1: Check MCP server
+### Step 1: Account setup
 
-First, check if the Infer MCP server is connected. Try calling any Infer tool
-(e.g., `get_top_events`). If it works, the MCP server is already set up.
-
-If the MCP server is NOT connected:
-Tell the user: "The Infer MCP server isn't connected yet. Let me set it up."
-
-Add to the user's Claude Code MCP config (settings.json or claude_desktop_config.json):
-```json
-{
-  "mcpServers": {
-    "infer": {
-      "command": "npx",
-      "args": ["--yes", "@inferevents/mcp@latest"]
-    }
-  }
-}
-```
-
-Ask: "I need to add the Infer MCP server to your Claude Code config. OK?"
-After adding, the user may need to restart Claude Code for MCP to connect.
-
-### Step 2: Check existing account
-
-Read `~/.infer/config.json`. Three possible states:
+Read `~/.infer/config.json`. Four possible states:
 
 **State A: Config exists with projects**
 The user already has an Infer account. Check if the current directory already has
@@ -93,36 +86,31 @@ Infer configured (check `package.json` for `@inferevents/sdk` in dependencies).
 If SDK is already installed:
 → Say: "This project already has Infer configured (project: [active project name])."
 → Ask: "Want to keep this config, switch to a different project, or create a new one?"
-  A) Keep current config → Jump to Step 4 (verify)
-  B) Switch project → Call `switch_project` MCP tool to list and select
-  C) Create new project → Go to Step 3
+  A) Keep current config → Jump to Step 3 (detect project)
+  B) Switch project → List projects from config, let user pick, then Step 3
+  C) Create new project → Go to Step 2
 
 If SDK is NOT installed:
 → Say: "Found your Infer account ([N] projects). Let's set up this codebase."
 → Ask: "Use an existing project or create a new one?"
-  A) Use existing → Call `switch_project` to select, then jump to Step 5 (detect project)
-  B) Create new → Go to Step 3
+  A) Use existing → Let user pick, then jump to Step 3
+  B) Create new → Go to Step 2
 
 **State B: Config exists but empty/invalid**
 → Say: "Found Infer config but it's invalid. Let's reconnect."
-→ Go to Step 3.
+→ Go to Step 1c (signup).
 
 **State C: Config exists with session but no projects (new signup)**
 The user just signed up. The config has `{"endpoint":"...","session":"abc123"}`
-but no projects yet. This is the normal state after pasting the signup command.
+but no projects yet.
 → Say: "Found your Infer session. Let me fetch your project."
-→ Go to Step 2b (fetch keys).
+→ Go to Step 1b (fetch keys).
 
 **State D: No config file**
 → Say: "No Infer account found. Let's get you set up."
-→ Ask: "Do you have an Infer account?"
-  A) Yes → Open https://infer.events/signup, sign in, paste the setup command here.
-  B) No → Open https://infer.events/signup, create an account, paste the setup command.
+→ Go to Step 1c (signup).
 
-When they paste it, the config is saved to `~/.infer/config.json` with a session
-token. Proceed to Step 2b.
-
-### Step 2b: Fetch project keys via session
+### Step 1b: Fetch project keys via session
 
 If the config has a `session` field but no project keys, fetch them from the API.
 
@@ -132,7 +120,7 @@ If the config has a `session` field but no project keys, fetch them from the API
    - Save the returned write_key and read_key to `~/.infer/config.json`
    - Write `.infer.json` to project root: `{"project": "<project-slug>"}`
    - Add `.infer.json` to `.gitignore`
-   - Jump to Step 4 (verify MCP)
+   - Jump to Step 3 (detect project)
 3. If user has multiple projects:
    - Ask which project to use for this codebase
    - Fetch keys for the chosen project
@@ -140,14 +128,23 @@ If the config has a `session` field but no project keys, fetch them from the API
    - Write `.infer.json` to project root with chosen project
    - Add `.infer.json` to `.gitignore`
 4. If user has no projects:
-   - Go to Step 3 (create new project)
+   - Go to Step 2 (create new project)
 
 This step is the magic: the user never sees or handles API keys. The session
 token authenticates, the API returns the keys, and they're saved automatically.
 The `.infer.json` file in the project root pins this directory to the correct
 project so the MCP server auto-selects it regardless of the global activeProject.
 
-### Step 3: Create new project (CLI-first)
+### Step 1c: Signup
+
+→ Ask: "Do you have an Infer account?"
+  A) Yes → Open https://infer.events/signup, sign in, paste the setup command here.
+  B) No → Open https://infer.events/signup, create an account, paste the setup command.
+
+When they paste it, the config is saved to `~/.infer/config.json` with a session
+token. Proceed to Step 1b.
+
+### Step 2: Create new project
 
 This runs entirely in the CLI. No website redirect needed.
 
@@ -170,19 +167,9 @@ After project creation succeeds:
 → Add `.infer.json` to the project's `.gitignore` (it contains no secrets,
   but it's machine-specific like .env.local).
 → Say: "Project '[name]' created! Config saved. This directory is now linked to it."
-→ Jump to Step 5 (detect project).
+→ Jump to Step 3 (detect project).
 
-### Step 4: Verify MCP connection
-
-The MCP server is already running if the user is reading this skill. But check
-if the config is complete:
-
-1. Verify `~/.infer/config.json` has `apiKey`, `endpoint`
-2. Test connectivity: call `get_top_events(time_range="last_24h")` as a ping
-3. If it works: "MCP server connected and working."
-4. If it fails: troubleshoot (wrong endpoint, invalid key, network issue)
-
-### Step 5: Detect project
+### Step 3: Detect project and install SDK
 
 Read `package.json` in the current working directory.
 
@@ -204,18 +191,16 @@ Tell the user what you detected:
 
 If `@inferevents/sdk` is already in dependencies:
 "SDK already installed. Checking integration..."
-→ Skip to Step 6.
+→ Skip to Step 4.
 
-### Step 6: Install SDK
-
-Ask: "Install @inferevents/sdk? (This adds the tracking library to your project)"
+Otherwise, ask: "Install @inferevents/sdk? (This adds the tracking library to your project)"
 
 If yes:
 ```bash
 npm install @inferevents/sdk@latest
 ```
 
-### Step 7: Integrate SDK
+### Step 4: Integrate SDK
 
 Ask: "Add tracking to [detected entry point]? I'll create the analytics module and
 wire it into your app. I'll ask before changing each file."
@@ -278,7 +263,7 @@ import { initAnalytics } from "./lib/analytics";
 initAnalytics();
 ```
 
-### Step 7b: Check for Content Security Policy
+### Step 4b: Check for Content Security Policy
 
 After integrating the SDK, check if the project has a CSP that would block
 requests to `api.infer.events`. Search for Content-Security-Policy in:
@@ -295,12 +280,12 @@ If a CSP with `connect-src` is found and does NOT include `api.infer.events`:
 
 If no CSP is found, skip this step silently.
 
-### Step 8: Build tracking plan
+### Step 5: Build tracking plan
 
-Ask: "Want me to analyze your codebase and suggest what events to track?"
+Say: "Now let's set up your tracking plan. I'll read your codebase and suggest
+which user actions to track beyond the auto-tracked page views and clicks."
 
-If yes, read the `infer://tracking-plan` resource and follow it completely.
-It will:
+Follow the tracking plan process completely. It will:
 1. Deep dive into the codebase to understand the product
 2. Map the user journey (entry → activation → core action → engagement)
 3. Propose specific events at specific file:line locations
@@ -310,32 +295,61 @@ It will:
 This is the most valuable step — it's doing the PM's job of deciding what to measure,
 based on the actual code, not guessing.
 
-### Step 9: Verify
+### Step 6: Configure MCP server
 
-Say: "Let me verify everything is working."
+Now that the SDK and tracking plan are set up, add the MCP server config.
 
-1. Ask the user to open their app in the browser
-2. Wait 15 seconds for the batch to flush
-3. Run `get_top_events(time_range="last_24h")`
-4. If events found: "✓ Events flowing. [N] events received."
-5. If no events: troubleshoot (check write key, check console errors, check app is running)
+Check if `.mcp.json` already exists in the project root or if the user's
+Claude Code settings already have an `infer` MCP server configured.
 
-### Step 10: Suggest next steps
+If NOT configured:
+Ask: "I need to add the Infer MCP server to your project config. This lets
+your agent query your analytics data. OK?"
 
-After setup is complete, you MUST call the `AskUserQuestion` tool.
+Add to `.mcp.json` in the project root:
+```json
+{
+  "mcpServers": {
+    "infer": {
+      "command": "npx",
+      "args": ["--yes", "@inferevents/mcp@latest"]
+    }
+  }
+}
+```
 
-**Role-aware:** Check the user's CLAUDE.md and conversation memory. PM → tracking plan, funnel.
-Growth → conversion, monitoring. Founder → retention, PMF. Engineer → verification, errors.
+If `.mcp.json` already exists, merge the `infer` entry into it.
 
-Use AskUserQuestion:
+### Step 7: Restart and verify
 
-> Setup complete! What do you want to do first?
+This is the final step. Present a summary of everything that was set up:
+
+```
+Setup complete:
+- ~/.infer/config.json — account credentials
+- .infer.json — links this directory to your project
+- .mcp.json — Infer MCP server for querying analytics
+- src/lib/analytics.ts — SDK initialized with your project key
+- src/components/analytics-provider.tsx — client component that boots the SDK
+- src/app/layout.tsx — provider wired into root layout
+- [N] custom events added via tracking plan
+
+To start using Infer:
+1. Restart Claude Code (so the MCP server connects)
+2. Open your app in the browser (npm run dev)
+3. Navigate around — auto-tracking and custom events will fire
+```
+
+Then you MUST call the `AskUserQuestion` tool:
+
+> Restart Claude Code to connect the MCP server. After restart, you can ask
+> your agent anything about your analytics data.
 >
-> 💡 Tip: Run /infer-tracking-plan to have your agent read your codebase and suggest exactly what to track.
+> 💡 Tip: After restarting, try asking "Give me a quick pulse on the app" to see your first insights.
 
 Options:
-- A) Set up tracking plan (Recommended) — I'll read your codebase and suggest which user actions to track
-- B) See my first insights — Run a quick health check on whatever data is flowing
+- A) I'll restart now — Come back and ask me anything about your data
+- B) See my first insights — Run a quick health check on whatever data is flowing (requires restart first)
 - C) Set up daily monitoring — Schedule automatic checks so you catch issues early
 - D) Just explore — I'll ask questions about my data as I go
 
@@ -355,8 +369,8 @@ Save this config to ~/.infer/config.json:
 Then run /infer-setup to configure everything.
 ```
 
-The setup wizard handles the rest: MCP server install, SDK install, framework
-detection, tracking integration, verification.
+The setup wizard handles the rest: account check, SDK install, framework
+detection, tracking integration, MCP config, and restart instructions.
 
 ## Troubleshooting
 
