@@ -334,7 +334,7 @@ Use AskUserQuestion:
 > 💡 Tip: Run /infer-tracking-plan to have your agent read your codebase and suggest exactly what to track.
 
 Options:
-- A) Set up tracking plan — I'll read your codebase and suggest which user actions to track
+- A) Set up tracking plan (Recommended) — I'll read your codebase and suggest which user actions to track
 - B) See my first insights — Run a quick health check on whatever data is flowing
 - C) Set up daily monitoring — Schedule automatic checks so you catch issues early
 - D) Just explore — I'll ask questions about my data as I go
