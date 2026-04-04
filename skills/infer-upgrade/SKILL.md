@@ -19,7 +19,7 @@ echo "SDK_LATEST=$(npm view @inferevents/sdk version 2>/dev/null || echo 'not-pu
 echo "MCP_LATEST=$(npm view @inferevents/mcp version 2>/dev/null || echo 'not-published')"
 
 # Installed SDK in current project
-echo "SDK_INSTALLED=$(npm ls @inferevents/sdk --json 2>/dev/null | grep '"version"' | head -1 | sed 's/[^0-9.]//g' || echo 'not-installed')"
+echo "SDK_INSTALLED=$(node -e "try{console.log(require('@inferevents/sdk/package.json').version)}catch{console.log('not-installed')}" 2>/dev/null || echo 'not-installed')"
 
 # Check if MCP config exists
 echo "MCP_CONFIG=$(cat ~/.infer/config.json 2>/dev/null | head -1 || echo 'no-config')"

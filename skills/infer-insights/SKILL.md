@@ -25,7 +25,7 @@ fi
 if [ "$_NEEDS_CHECK" = "yes" ]; then
   _SDK_LATEST=$(npm view @inferevents/sdk version 2>/dev/null || echo "unknown")
   _MCP_LATEST=$(npm view @inferevents/mcp version 2>/dev/null || echo "unknown")
-  _SDK_INSTALLED=$(npm ls @inferevents/sdk --json 2>/dev/null | grep '"version"' | head -1 | sed 's/[^0-9.]//g' || echo "none")
+  _SDK_INSTALLED=$(node -e "try{console.log(require('@inferevents/sdk/package.json').version)}catch{console.log('none')}" 2>/dev/null || echo "none")
   mkdir -p ~/.infer
   echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"sdk_latest\":\"$_SDK_LATEST\",\"mcp_latest\":\"$_MCP_LATEST\",\"sdk_installed\":\"$_SDK_INSTALLED\"}" > "$_INFER_CACHE"
   echo "INFER_SDK_INSTALLED=$_SDK_INSTALLED INFER_SDK_LATEST=$_SDK_LATEST INFER_MCP_LATEST=$_MCP_LATEST"
