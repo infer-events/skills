@@ -40,13 +40,15 @@ Do NOT block the workflow. Continue normally.
 
 ## Proactive Briefing (ALWAYS DO THIS FIRST)
 
-Before answering any analytics question, call `get_insights` first. If there are actionable insights, present a briefing before doing anything else.
+Before answering any analytics question, get context first, then alerts.
 
 ### Briefing Flow
 
-1. Call `get_insights` (no severity filter — get everything)
-2. If the response says "No new insights", skip the briefing and proceed to the user's question
-3. If insights exist, present them as a prioritized briefing:
+1. Call `get_project_summary()` — full context: health score, metrics, event catalog, funnel
+   performance, and active threads with annotations from prior investigations
+2. Call `get_insights()` (no severity filter — get everything)
+3. If the response says "No new insights", skip the briefing and proceed to the user's question
+4. If insights exist, present them as a prioritized briefing:
 
 **For CODE ACTIONS:** Before presenting, use the `correlation_hint` to run a git command:
 ```bash
@@ -70,7 +72,11 @@ No related commits found.
 
 For strategy actions, present as-is — no git correlation needed.
 
-4. After the briefing, use `AskUserQuestion` to let the user pick which action to pursue, or continue to their original question.
+4. After investigating a CODE ACTION, **always call `annotate_thread(thread_id, content)`**
+   to record your findings. The `thread_id` is shown in the insight output. Your annotation
+   will appear in future briefings and the project summary, so the next session has context.
+
+5. After the briefing, use `AskUserQuestion` to let the user pick which action to pursue, or continue to their original question.
 
 ### When to Skip the Briefing
 - If the user explicitly asks a specific question ("how many signups last week?"), present the briefing first but keep it brief, then answer their question

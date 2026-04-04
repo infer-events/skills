@@ -39,10 +39,19 @@ If installed SDK version differs from latest, append this line at the END of you
 `Infer update available — run /infer-upgrade to get the latest.`
 Do NOT block or interrupt the workflow. Continue normally.
 
-## STEP ZERO: Check ontology and insights
+## STEP ZERO: Project Summary First
 
-Before running manual queries, call `get_ontology()` to see if events are classified
-into product categories (activation, engagement, monetization, referral, noise).
+**Always call `get_project_summary()` first.** This returns the compiled analytics wiki:
+health score, key metrics, event catalog, funnel performance, and active insight threads
+with annotations from previous investigations.
+
+This gives you full context before diving into specifics. Present the summary to the user,
+then proceed to insights.
+
+## STEP ONE: Check ontology and insights
+
+Call `get_ontology()` to see if events are classified into product categories
+(activation, engagement, monetization, referral, noise).
 If ontology exists, use it to:
 - Focus on activation and monetization events for funnel analysis
 - Skip "noise" events in health checks
@@ -52,16 +61,46 @@ If ontology exists, use it to:
 If no ontology exists, suggest: "Your events aren't categorized yet. Run
 /infer-tracking-plan or use `update_ontology` to classify them for richer insights."
 
-## Then: Always call get_insights
+## STEP TWO: Get insights with thread context
 
-Before running any manual queries, call `get_insights()` to check for pre-computed
-anomalies and notable patterns. The Infer backend detects these automatically every hour.
+Call `get_insights()` to check for pre-computed anomalies and notable patterns.
+The Infer backend detects these automatically every hour.
+
+Insights now include **thread context**:
+- **Day N** — how long the issue has been ongoing
+- **Note** — findings from previous investigations (annotations)
+- **Thread: thread_id** — use this ID to annotate the thread after investigating
+
 If insights exist, present them first, then decide whether the manual query sequence
 is still needed.
 
 If `get_insights` returns "No new insights", proceed to the manual query sequence below.
 If it returns findings, present them and only run additional queries if the user asks
 for deeper analysis.
+
+## AFTER INVESTIGATING: Annotate the thread
+
+After investigating any insight (running git log, querying events, checking code),
+**always call `annotate_thread(thread_id, content)` to record your findings.**
+
+The `thread_id` is shown in the `get_insights` output. Your annotation will:
+- Appear in future `get_insights` briefings (as "Note: ...")
+- Appear in `get_project_summary` under active threads (as "↳ ...")
+- Give the next agent (or your next session) immediate context
+
+Example:
+```
+annotate_thread(
+  thread_id: "t-abc-123",
+  content: "Root cause: deploy abc123 removed OAuth callback URL from env vars"
+)
+```
+
+Good annotations are specific and actionable:
+- "Root cause: deploy abc123 broke OAuth callback" ✓
+- "Seems like a problem" ✗
+- "Signup drop correlates with checkout error spike — likely same deploy" ✓
+- "Investigated, nothing found" — still useful, prevents re-investigation
 
 When invoked, you run a structured query sequence against the Infer MCP tools,
 score each finding by impact, and surface the top 5. No questions asked. Just insights.
@@ -296,15 +335,26 @@ Options:
 
 ## Automated Mode (via /schedule or /loop)
 
-When triggered by a schedule, run the full query sequence silently.
+When triggered by a schedule:
+
+1. **Call `get_project_summary()` first** — this is pre-compiled and fast. It gives you
+   health score, metrics, active threads, and prior annotations in one call.
+
+2. **Call `get_insights()` only if the summary shows active issues** (health < 8 or
+   active_issues > 0). This avoids unnecessary API calls on quiet days.
+
+3. **Call `annotate_thread()` if you discover anything** during automated investigation.
+
 Only notify the user if:
-1. Any insight scores > 60/125 (high impact)
-2. Retention dropped > 10 percentage points vs previous period
-3. Error rate spiked > 2x vs previous period
-4. Zero events recorded (SDK may be broken)
+1. Health score dropped below 7
+2. Any insight is severity "critical"
+3. Retention dropped > 10 percentage points vs previous period
+4. Error rate spiked > 2x vs previous period
+5. Zero events recorded (SDK may be broken)
 
 For routine checks with no notable findings:
 ```
 ## Infer Pulse — [Date]
-All clear. [N] events, [N] users, retention holding at [X%]. Nothing unusual.
+Health: [X]/10 | [N] events | [N] users | [N] active threads
+All clear. Nothing unusual.
 ```
