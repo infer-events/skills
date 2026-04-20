@@ -240,7 +240,8 @@ input vs output token totals. Three spike shapes:
   prompt change ("generate a comprehensive report"), `max_tokens` bumped,
   or model variant swap.
 - **Both spiked** → call volume is up, not per-call token cost. Check
-  `get_event_counts` (or `list_spans(time_window=24h)` row count) to confirm.
+  `list_spans(time_window=24h)` row count (or `get_insights` for a detected
+  volume anomaly) to confirm.
 
 If `metadata.feature` is populated (requires `x-infer-metadata` header on
 the client), run `get_token_usage(dimension=feature, time_window=7d)` to see
