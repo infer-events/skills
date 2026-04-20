@@ -1,11 +1,28 @@
 ---
 name: infer-setup
-description: Use when setting up Infer analytics in a new project, integrating the SDK, or configuring the MCP server. Triggers on "set up analytics", "add tracking", "integrate infer", "install infer", or when a project has no analytics and the user wants to add it.
+description: Use when setting up Infer observability in a project, routing an LLM client through the gateway, integrating the MCP server, or migrating from the legacy @inferevents/sdk web-analytics SDK. Triggers on "set up Infer", "add Infer", "install Infer", /infer-setup.
 allowed-tools:
   - AskUserQuestion
 ---
 
-# Infer Setup — The Wizard
+# Infer Setup — The Wizard (gateway-era)
+
+Infer is an AI-agent observability gateway. You change one `baseURL` in your
+LLM client — that's it. Every OpenAI / Anthropic / Ollama Cloud call routes
+through `gateway.infer.events`, captures an OpenTelemetry GenAI span, and
+lands in Postgres. The MCP server reads those spans back as insights,
+investigations, and proactive briefings.
+
+This skill walks you through five things:
+
+1. Account + project setup (signup or use existing)
+2. Provider table — which providers Infer supports today (and which don't work)
+3. Detect your LLM client in this codebase
+4. 3-line baseURL change (with opt-in auto-edit)
+5. Live-verify the first span lands + MCP config + restart
+
+If you installed the old `@inferevents/sdk` (web-analytics era), the wizard
+also walks you through removing it.
 
 ## Update Check (non-blocking)
 
@@ -19,48 +36,64 @@ if [ -f "$_INFER_CACHE" ]; then
   [ "$_CACHE_AGE" -lt 21600 ] && _NEEDS_CHECK="no"
 fi
 if [ "$_NEEDS_CHECK" = "yes" ]; then
-  _SDK_LATEST=$(npm view @inferevents/sdk version 2>/dev/null || echo "unknown")
   _MCP_LATEST=$(npm view @inferevents/mcp version 2>/dev/null || echo "unknown")
-  _SDK_INSTALLED=$(node -e "try{console.log(require('@inferevents/sdk/package.json').version)}catch{console.log('none')}" 2>/dev/null || echo "none")
   mkdir -p ~/.infer
-  echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"sdk_latest\":\"$_SDK_LATEST\",\"mcp_latest\":\"$_MCP_LATEST\",\"sdk_installed\":\"$_SDK_INSTALLED\"}" > "$_INFER_CACHE"
-  echo "INFER_SDK_INSTALLED=$_SDK_INSTALLED INFER_SDK_LATEST=$_SDK_LATEST INFER_MCP_LATEST=$_MCP_LATEST"
+  echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"mcp_latest\":\"$_MCP_LATEST\"}" > "$_INFER_CACHE"
+  echo "INFER_MCP_LATEST=$_MCP_LATEST"
 else
   cat "$_INFER_CACHE"
   echo "INFER_CHECK=cached"
 fi
 ```
 
-If installed SDK version differs from latest, append at the END of your response:
+If a newer MCP version is available, append at the END of your response:
 `Infer update available — run /infer-upgrade to get the latest.`
 Do NOT block the wizard. Continue normally.
 
-This is the full setup wizard. It detects your current state and walks you through
-everything step by step, asking before each change.
-
 ## How Infer Works
 
-- **Write key** (`pk_write_...`): Public. Embedded in app JS. Can ONLY send events.
-- **Read key** (`pk_read_...`): Secret. In `~/.infer/config.json`. Used by this MCP server to query data.
-- **SDK** (`@inferevents/sdk`): Installed in the user's app. Tracks events.
-- **MCP server** (`@inferevents/mcp`): Separate package. Connects to Claude Code as an MCP server. Queries the API.
-- **Skills** (`@inferevents/skills`): This package. Teaches agents how to use Infer.
+- **Gateway** (`gateway.infer.events`): Cloudflare Worker that proxies your LLM
+  calls to the real provider and captures a span per call.
+- **Project ID** (`proj_...`): Public identifier in the baseURL path. Same
+  privacy class as your Cloudflare account_id.
+- **Read key** (`pk_read_...`): Secret. Stored in `~/.infer/config.json`. Used
+  by the MCP server to query your spans.
+- **MCP server** (`@inferevents/mcp`): Connects to Claude Code (or any MCP
+  client). Runs locally via `npx` (stdio) or remotely at `mcp.infer.events/mcp`.
+- **Skills** (`infer-events/skills`): This package. Teaches your agent how
+  to use Infer.
+
+## Supported Providers (v1)
+
+| Provider | URL pattern | v1 | Notes |
+|---|---|---|---|
+| OpenAI | `gateway.infer.events/v1/{project_id}/openai/v1` | ✓ | GPT-4o, 4o-mini, o1, o3-mini, etc. |
+| Anthropic | `gateway.infer.events/v1/{project_id}/anthropic` | ✓ | claude-sonnet-4-6, claude-opus-4-7, claude-haiku-4-5 |
+| Ollama Cloud | `gateway.infer.events/v1/{project_id}/ollama/v1` | ✓ | Cloud only (api.ollama.com); self-hosted Ollama is blocked — see troubleshooting |
+| Gemini | — | — | v1.1 roadmap |
+| Cohere / Mistral | — | — | v1.1+ roadmap |
+| Fireworks / Together / Groq / other OpenAI-compatible | — | — | **Not supported.** Each needs its own gateway segment. Open an issue for the provider you need. |
+
+**⚠️ Footgun:** If your client uses an OpenAI-compatible `baseURL` pointed at
+a non-OpenAI provider (e.g. `https://api.fireworks.ai/inference/v1`), Infer
+v1 cannot route it — the `/openai/` path segment is hardcoded to
+`api.openai.com`. Each additional OpenAI-wire-compatible provider needs its
+own gateway segment. Open an issue requesting the one you need, or use
+OpenAI / Anthropic / Ollama Cloud for now.
 
 ## Setup Flow
 
-The wizard follows this order:
-
 ```
-1. Account setup (signup or login)
-2. Project setup (create or select project, fetch keys)
-3. SDK install + integrate into project code
-4. Tracking plan (read codebase, suggest and add events)
-5. Configure MCP + restart Claude Code
+1. Account setup (signup or existing)
+2. Project setup (pick or create; fetch keys)
+3. Migration check (if @inferevents/sdk present, remove it)
+4. Detect LLM client + propose 3-line baseURL diff
+5. Apply (auto-edit) or show (manual-apply) + live-verify
+6. Configure MCP + restart
 ```
 
-MCP is last because it needs a restart. By doing it last, the restart serves
-double duty: connects MCP AND marks the end of setup. When the user comes back,
-everything is ready — SDK installed, events instrumented, MCP connected.
+MCP is last because it needs a Claude Code restart. When the user returns,
+everything works — spans flow through the gateway, MCP reads them back.
 
 ## Entry Points
 
@@ -70,8 +103,8 @@ There are two ways users arrive here:
 Start from Step 1 below.
 
 ### Entry B: User pasted a setup prompt from infer.events/signup
-The prompt contains credentials inline. Extract them and skip to Step 3.
-Look for: `projectId`, `writeKey`, `readKey`, `endpoint` in the pasted text.
+The prompt contains credentials inline. Extract them and skip to Step 4.
+Look for: `project_id`, `read_key`, `endpoint` in the pasted text.
 
 ## The Wizard
 
@@ -80,233 +113,235 @@ Look for: `projectId`, `writeKey`, `readKey`, `endpoint` in the pasted text.
 Read `~/.infer/config.json`. Four possible states:
 
 **State A: Config exists with projects**
-The user already has an Infer account. Check if the current directory already has
-Infer configured (check `package.json` for `@inferevents/sdk` in dependencies).
-
-If SDK is already installed:
-→ Say: "This project already has Infer configured (project: [active project name])."
-→ Ask: "Want to keep this config, switch to a different project, or create a new one?"
-  A) Keep current config → Jump to Step 3 (detect project)
-  B) Switch project → List projects from config, let user pick, then Step 3
-  C) Create new project → Go to Step 2
-
-If SDK is NOT installed:
+Existing Infer user.
 → Say: "Found your Infer account ([N] projects). Let's set up this codebase."
-→ Ask: "Use an existing project or create a new one?"
-  A) Use existing → Let user pick, then jump to Step 3
-  B) Create new → Go to Step 2
+→ Ask via `AskUserQuestion`: "Use an existing project or create a new one?"
+  - A) Use existing → list projects, let user pick, then Step 3
+  - B) Create new → Step 2
 
 **State B: Config exists but empty/invalid**
 → Say: "Found Infer config but it's invalid. Let's reconnect."
-→ Go to Step 1c (signup).
+→ Go to signup (Step 1c).
 
 **State C: Config exists with session but no projects (new signup)**
-The user just signed up. The config has `{"endpoint":"...","session":"abc123"}`
-but no projects yet.
 → Say: "Found your Infer session. Let me fetch your project."
 → Go to Step 1b (fetch keys).
 
 **State D: No config file**
 → Say: "No Infer account found. Let's get you set up."
-→ Go to Step 1c (signup).
+→ Go to signup (Step 1c).
 
 ### Step 1b: Fetch project keys via session
 
-If the config has a `session` field but no project keys, fetch them from the API.
-
-1. Call `GET /v1/auth/me?session=SESSION` to get the user's project list
-2. If user has one project:
-   - Call `GET /v1/auth/project-keys?session=SESSION&project_id=PROJECT_ID`
-   - Save the returned write_key and read_key to `~/.infer/config.json`
-   - Write `.infer.json` to project root: `{"project": "<project-slug>"}`
+If the config has a `session` field but no project keys, call the API:
+1. `GET /v1/auth/me?session=SESSION` → user's project list
+2. If exactly one project:
+   - `GET /v1/auth/project-keys?session=SESSION&project_id=PROJECT_ID`
+   - Save `{projectId, readKey, endpoint}` to `~/.infer/config.json`
+   - Write `.infer.json` to project root: `{"project": "<slug>"}`
    - Add `.infer.json` to `.gitignore`
-   - Jump to Step 3 (detect project)
-3. If user has multiple projects:
-   - Ask which project to use for this codebase
-   - Fetch keys for the chosen project
-   - Save to config as active project
-   - Write `.infer.json` to project root with chosen project
-   - Add `.infer.json` to `.gitignore`
-4. If user has no projects:
-   - Go to Step 2 (create new project)
-
-This step is the magic: the user never sees or handles API keys. The session
-token authenticates, the API returns the keys, and they're saved automatically.
-The `.infer.json` file in the project root pins this directory to the correct
-project so the MCP server auto-selects it regardless of the global activeProject.
+   - Jump to Step 3
+3. If multiple projects: ask which one, then fetch keys for that one.
+4. If no projects: go to Step 2.
 
 ### Step 1c: Signup
 
-→ Ask: "Do you have an Infer account?"
-  A) Yes → Open https://infer.events/signup, sign in, paste the setup command here.
-  B) No → Open https://infer.events/signup, create an account, paste the setup command.
+→ Ask via `AskUserQuestion`: "Do you have an Infer account?"
+  - A) Yes → open `https://infer.events/signup`, sign in, paste the setup command here
+  - B) No → open `https://infer.events/signup`, create account, paste setup command
 
-When they paste it, the config is saved to `~/.infer/config.json` with a session
+When pasted, the config is saved to `~/.infer/config.json` with a session
 token. Proceed to Step 1b.
 
 ### Step 2: Create new project
 
-This runs entirely in the CLI. No website redirect needed.
+Runs entirely in the CLI. Ask: "What should we call this project?" (suggest
+the current directory name).
 
-Ask: "What should we call this project?" (suggest: the current directory name)
+Call the `create_project` MCP tool with the project name:
+- Reads the session token from `~/.infer/config.json`
+- Creates the project via the API
+- Receives `project_id` + `pk_read_*` key in response
+- Saves to `~/.infer/config.json` as the active project
 
-Then call the `create_project` MCP tool with the project name. This:
-1. Reads the saved session token from `~/.infer/config.json`
-2. Calls the Infer API to create a new project
-3. Generates write + read API keys
-4. Saves the new project to `~/.infer/config.json` as the active project
+After creation:
+- Write `.infer.json` to project root: `{"project": "<slug>"}`
+- Add `.infer.json` to `.gitignore`
+- Say: "Project '[name]' created. This directory is linked to it."
+- Jump to Step 3.
 
-If the tool returns "No session found": the user needs to sign in first.
-Say: "You need to sign in once. Opening infer.events/signup..."
-After they complete signup and paste the setup command, extract the session token
-and retry the project creation.
+### Step 3: Check for legacy @inferevents/sdk
 
-After project creation succeeds:
-→ Write `.infer.json` to the project root: `{"project": "<project-slug>"}`
-  This pins this directory to the project so the MCP server auto-selects it.
-→ Add `.infer.json` to the project's `.gitignore` (it contains no secrets,
-  but it's machine-specific like .env.local).
-→ Say: "Project '[name]' created! Config saved. This directory is now linked to it."
-→ Jump to Step 3 (detect project).
+Read `package.json` in the current working directory. If `@inferevents/sdk`
+appears in `dependencies` or `devDependencies`:
 
-### Step 3: Detect project and install SDK
+→ Say: "You have the legacy web-analytics Infer SDK. Infer pivoted to an
+  LLM observability gateway in 2026-04 — the SDK is being deprecated
+  (parent spec §8 Phase 8). Let's remove it before setting up the gateway
+  mode."
 
-Read `package.json` in the current working directory.
+→ Ask via `AskUserQuestion`:
+  - A) Remove automatically — I'll `npm uninstall @inferevents/sdk` and remove `init()`/`track()`/`identify()`/`reset()` calls
+  - B) Show me the removal steps — I'll do it manually
+  - C) Keep it (not recommended; SDK won't be maintained past 2026-07)
 
-**Framework detection:**
-
-| Signal | Framework | Entry point |
-|--------|-----------|-------------|
-| `"next"` in deps + `src/app/` exists | Next.js App Router | `src/app/layout.tsx` |
-| `"next"` in deps + `src/pages/` exists | Next.js Pages Router | `src/pages/_app.tsx` |
-| `"react-scripts"` in deps | Create React App | `src/index.tsx` |
-| `"vite"` in devDeps + `"react"` in deps | Vite + React | `src/main.tsx` |
-| `"expo"` in deps | Expo / React Native | `App.tsx` or `app/_layout.tsx` |
-| `"nuxt"` in deps | Nuxt.js | `app.vue` or `plugins/` |
-| `"@sveltejs/kit"` in devDeps | SvelteKit | `src/routes/+layout.svelte` |
-| None detected | Unknown | Ask user |
-
-Tell the user what you detected:
-"Detected **[framework]** project. Entry point: `[path]`."
-
-If `@inferevents/sdk` is already in dependencies:
-"SDK already installed. Checking integration..."
-→ Skip to Step 4.
-
-Otherwise, ask: "Install @inferevents/sdk? (This adds the tracking library to your project)"
-
-If yes:
+On (A):
 ```bash
-npm install @inferevents/sdk@latest
+npm uninstall @inferevents/sdk
+```
+Then grep for legacy calls and remove file-by-file, asking approval per file:
+```bash
+grep -rnE "from ['\"]@inferevents/sdk['\"]|init\(\s*\{\s*projectId|\bidentify\(|\btrack\(|\breset\(\s*\)" src/
+```
+For each file:
+→ Say: "Removing init()/track()/identify()/reset() calls in `src/lib/analytics.ts`. OK?"
+Remove the imports, the init() call, and any helper exports (`track`, `identify`, etc.). If the only thing the file does is wire analytics, offer to delete the whole file.
+
+Also remove:
+- `src/components/analytics-provider.tsx` (or equivalent) — the wrapper
+- `<AnalyticsProvider />` mount in `src/app/layout.tsx` (or equivalent entry)
+
+On (B): emit a concise manual removal guide and pause for "done, continue".
+
+### Step 4: Detect LLM client
+
+Read `package.json`. Match against these client detectors (v1 scope per
+spec Decision #6):
+
+| Package | Provider | Detect pattern |
+|---|---|---|
+| `openai` | OpenAI | `new OpenAI({...})` or `import ... from 'openai'` |
+| `@anthropic-ai/sdk` | Anthropic | `new Anthropic({...})` |
+| `ai` + `@ai-sdk/openai` | OpenAI (Vercel AI SDK) | `createOpenAI({...})` |
+| `ai` + `@ai-sdk/anthropic` | Anthropic (Vercel AI SDK) | `createAnthropic({...})` |
+| `ai` + `@ai-sdk/openai-compatible` | OpenAI-compatible (Ollama, etc.) | `createOpenAICompatible({...})` |
+| `ollama` | Ollama | `new Ollama({...})` |
+
+For each matching file, locate the client constructor. Build the proposed
+3-line diff using the detected pattern and the user's actual `project_id`
++ the correct gateway URL for the provider.
+
+**If no client is detected** (langchain, llamaindex, raw fetch, Python, etc.),
+say: "Couldn't auto-detect a supported LLM client. Here's the generic
+pattern — apply it to whichever HTTP client your code uses:
+
+```
+OpenAI-compat:  baseURL = "https://gateway.infer.events/v1/<PROJECT_ID>/openai/v1"
+Anthropic:      baseURL = "https://gateway.infer.events/v1/<PROJECT_ID>/anthropic"
+Ollama Cloud:   baseURL = "https://gateway.infer.events/v1/<PROJECT_ID>/ollama/v1"
 ```
 
-### Step 4: Integrate SDK
+Open an issue if your client library should be auto-detected."
 
-Ask: "Add tracking to [detected entry point]? I'll create the analytics module and
-wire it into your app. I'll ask before changing each file."
+### Step 5: Propose the 3-line diff (and apply, or don't)
 
-**Then create files based on detected framework:**
+For each detected client, show the diff inline. Examples:
 
-#### Next.js App Router
-
-**Gate 1:** "Create `src/lib/analytics.ts`?"
-```typescript
-import { init, track, identify, page, reset } from "@inferevents/sdk";
-
-export function initAnalytics() {
-  if (typeof window === "undefined") return;
-  init({
-    projectId: "[WRITE_KEY]",
-    endpoint: "[ENDPOINT]",
-    autoTrack: true,
-    debug: process.env.NODE_ENV === "development",
-  });
-}
-
-export { track, identify, page, reset };
+**OpenAI (`openai` package):**
+```ts
+-const openai = new OpenAI({
+-  apiKey: process.env.OPENAI_API_KEY,
+-});
++const openai = new OpenAI({
++  apiKey: process.env.OPENAI_API_KEY,
++  baseURL: "https://gateway.infer.events/v1/<PROJECT_ID>/openai/v1",
++});
 ```
 
-**Gate 2:** "Create `src/components/analytics-provider.tsx`?"
-```typescript
-"use client";
-import { useEffect } from "react";
-import { initAnalytics } from "@/lib/analytics";
-
-export function AnalyticsProvider() {
-  useEffect(() => { initAnalytics(); }, []);
-  return null;
-}
+**Anthropic (`@anthropic-ai/sdk`):**
+```ts
+-const anthropic = new Anthropic({
+-  apiKey: process.env.ANTHROPIC_API_KEY,
+-});
++const anthropic = new Anthropic({
++  apiKey: process.env.ANTHROPIC_API_KEY,
++  baseURL: "https://gateway.infer.events/v1/<PROJECT_ID>/anthropic",
++});
 ```
 
-**Gate 3:** "Add `<AnalyticsProvider />` to `src/app/layout.tsx`?"
-- Import the component
-- Add inside `<body>` tag
-
-#### Next.js Pages Router
-
-**Gate 1:** Create `src/lib/analytics.ts` (same as above)
-**Gate 2:** Add to `src/pages/_app.tsx`:
-```typescript
-import { useEffect } from "react";
-import { initAnalytics } from "@/lib/analytics";
-
-// Inside the component:
-useEffect(() => { initAnalytics(); }, []);
+**Vercel AI SDK — OpenAI:**
+```ts
+-import { createOpenAI } from "@ai-sdk/openai";
+-export const openai = createOpenAI({
+-  apiKey: process.env.OPENAI_API_KEY,
+-});
++import { createOpenAI } from "@ai-sdk/openai";
++export const openai = createOpenAI({
++  apiKey: process.env.OPENAI_API_KEY,
++  baseURL: "https://gateway.infer.events/v1/<PROJECT_ID>/openai/v1",
++});
 ```
 
-#### Vite / CRA / Plain React
-
-**Gate 1:** Create `src/lib/analytics.ts` (same as above)
-**Gate 2:** Add to `src/main.tsx`:
-```typescript
-import { initAnalytics } from "./lib/analytics";
-initAnalytics();
+**Vercel AI SDK — Anthropic:**
+```ts
+-export const anthropic = createAnthropic({
+-  apiKey: process.env.ANTHROPIC_API_KEY,
+-});
++export const anthropic = createAnthropic({
++  apiKey: process.env.ANTHROPIC_API_KEY,
++  baseURL: "https://gateway.infer.events/v1/<PROJECT_ID>/anthropic",
++});
 ```
 
-### Step 4b: Check for Content Security Policy
+**Vercel AI SDK — openai-compatible (Ollama):**
+```ts
+-export const ollama = createOpenAICompatible({
+-  name: "ollama-cloud",
+-  apiKey: process.env.OLLAMA_API_KEY,
+-  baseURL: "https://ollama.com/v1",
+-});
++export const ollama = createOpenAICompatible({
++  name: "ollama-cloud",
++  apiKey: process.env.OLLAMA_API_KEY,
++  baseURL: "https://gateway.infer.events/v1/<PROJECT_ID>/ollama/v1",
++});
+```
 
-After integrating the SDK, check if the project has a CSP that would block
-requests to `api.infer.events`. Search for Content-Security-Policy in:
-- `next.config.ts` / `next.config.js` (Next.js headers)
-- `middleware.ts` (Next.js middleware)
-- `<meta http-equiv="Content-Security-Policy">` in HTML
-- `.htaccess`, `nginx.conf`, `vercel.json` headers
+Substitute the real `PROJECT_ID` (from `~/.infer/config.json`) in each URL.
 
-If a CSP with `connect-src` is found and does NOT include `api.infer.events`:
-→ Say: "Your site has a Content Security Policy. I need to add api.infer.events
-   to connect-src so the SDK can send events."
-→ Add `https://api.infer.events` to the existing `connect-src` directive.
-→ Ask before making the change.
+Ask via `AskUserQuestion`:
+- A) Apply automatically — I'll edit the file
+- B) Just show me the diff — I'll apply it
 
-If no CSP is found, skip this step silently.
+On (A): edit each file with the diff. Confirm per file:
+→ Say: "Editing `src/lib/openai.ts`. OK?"
+Apply and move on.
 
-### Step 5: Build tracking plan
+On (B): leave the diffs on screen; wait for "done, continue".
 
-Say: "Now let's set up your tracking plan. I'll read your codebase and suggest
-which user actions to track beyond the auto-tracked page views and clicks."
+### Step 6: Live-verify (the first span lands)
 
-Follow the tracking plan process completely. It will:
-1. Deep dive into the codebase to understand the product
-2. Map the user journey (entry → activation → core action → engagement)
-3. Propose specific events at specific file:line locations
-4. Present a table for approval
-5. Implement only the approved events
+After baseURL change is applied:
+→ Say: "Make one test LLM call from your app (or run `npm run dev` and trigger
+  a feature that uses the client). I'll check that the span landed within
+  ~2 seconds."
 
-This is the most valuable step — it's doing the PM's job of deciding what to measure,
-based on the actual code, not guessing.
+Then call the MCP tool:
+```
+list_spans(limit=1, time_window=5m)
+```
 
-### Step 6: Configure MCP server
+If at least one span is returned:
+→ Say: "Your first span is in Infer — model=X, duration=Yms, status=Z. You're
+  live."
 
-Now that the SDK and tracking plan are set up, add the MCP server config.
+If `list_spans` returns zero:
+→ Say: "No span landed yet. Possible reasons:
+  - You haven't made an LLM call since the baseURL change
+  - Your dev server cached the old config — restart it
+  - The client's baseURL change didn't save — re-check the file
+  
+  Make an LLM call and ask me to re-check."
 
-Check if `.mcp.json` already exists in the project root or if the user's
-Claude Code settings already have an `infer` MCP server configured.
+### Step 7: Configure MCP server
 
-If NOT configured:
-Ask: "I need to add the Infer MCP server to your project config. This lets
-your agent query your analytics data. OK?"
+Check `.mcp.json` in the project root or the user's Claude Code settings.
 
-Add to `.mcp.json` in the project root:
+If NOT configured, ask:
+→ "Add the Infer MCP server to your project config? This lets your agent
+   query your spans."
+
+Add to `.mcp.json`:
 ```json
 {
   "mcpServers": {
@@ -318,44 +353,43 @@ Add to `.mcp.json` in the project root:
 }
 ```
 
-If `.mcp.json` already exists, merge the `infer` entry into it.
+If `.mcp.json` already exists, merge the `infer` entry in.
 
-### Step 7: Restart and verify
+### Step 8: Restart + closing summary
 
-This is the final step. Present a summary of everything that was set up:
-
+Present a summary:
 ```
 Setup complete:
-- ~/.infer/config.json — account credentials
+- ~/.infer/config.json — account credentials (read key, endpoint, project_id)
 - .infer.json — links this directory to your project
-- .mcp.json — Infer MCP server for querying analytics
-- src/lib/analytics.ts — SDK initialized with your project key
-- src/components/analytics-provider.tsx — client component that boots the SDK
-- src/app/layout.tsx — provider wired into root layout
-- [N] custom events added via tracking plan
+- .mcp.json — Infer MCP server
+- <file>.ts — baseURL pointed at gateway.infer.events
+- First span confirmed landed
 
-To start using Infer:
-1. Restart Claude Code (so the MCP server connects)
-2. Open your app in the browser (npm run dev)
-3. Navigate around — auto-tracking and custom events will fire
+Next: restart Claude Code to connect the MCP server. After restart, ask me
+anything about your LLM observability data.
 ```
 
-Then you MUST call the `AskUserQuestion` tool:
+Call `AskUserQuestion`:
 
-> Restart Claude Code to connect the MCP server. After restart, you can ask
-> your agent anything about your analytics data.
+> Restart Claude Code to load the MCP server. Once connected, try these next.
 >
-> 💡 Tip: After restarting, try asking "Give me a quick pulse on the app" to see your first insights.
+> 💡 Tip: After a baseURL change, the first span lands within ~2s of your first LLM call
 
 Options:
-- A) I'll restart now — Come back and ask me anything about your data
-- B) See my first insights — Run a quick health check on whatever data is flowing (requires restart first)
-- C) Set up daily monitoring — Schedule automatic checks so you catch issues early
-- D) Just explore — I'll ask questions about my data as I go
+- A) Verify spans are flowing — I'll run `list_spans` after you restart
+- B) See my first insights — run `/infer-insights` to get a briefing
+- C) Set up daily monitoring — `/loop` or `/schedule` for recurring checks
+- D) I'll make a test call first — explore on my own
+
+Rotating tips (pick one that hasn't appeared in this session):
+- `💡 Tip: After a baseURL change, the first span lands within ~2s of your first LLM call`
+- `💡 Tip: Use x-infer-redact: true to drop message bodies for sensitive data`
+- `💡 Tip: x-infer-session-id + x-infer-user-id headers unlock per-session / per-user analysis in get_latency_stats + get_cost_stats`
 
 ## From the Website: Install Flow
 
-When a user signs up on the website, the signup page shows two steps:
+When a user signs up on infer.events, the signup page shows two steps:
 
 **Step 1: Install skills**
 ```
@@ -365,22 +399,20 @@ npx skills add infer-events/skills
 **Step 2: Paste into Claude Code**
 ```
 Save this config to ~/.infer/config.json:
-{"apiKey":"[READ_KEY]","endpoint":"[ENDPOINT]","projectId":"[PROJECT_ID]"}.
+{"project_id":"proj_...","read_key":"pk_read_...","endpoint":"https://api.infer.events"}
 Then run /infer-setup to configure everything.
 ```
 
-The setup wizard handles the rest: account check, SDK install, framework
-detection, tracking integration, MCP config, and restart instructions.
+The wizard resumes from Step 3 (migration check) → Step 4 (detect) → ...
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
-|---------|-------|-----|
-| "No events found" after setup | Write key wrong or app not running | Check write key in analytics.ts, check browser console |
-| 401 from API | Invalid or wrong key type | Write key for SDK, read key for MCP |
-| SDK not initializing | SSR calling init() | Check `typeof window !== "undefined"` guard |
-| MCP server can't connect | Wrong endpoint or read key | Check ~/.infer/config.json |
-| "Failed to reconnect" after upgrade | .mcp.json has pinned version (@inferevents/mcp@0.1.6) | Change args to `["@inferevents/mcp"]` (no version), then /mcp restart |
-| Auto-track not firing | autoTrack not set | Set `autoTrack: true` in init() |
-| Console: "Refused to connect" / CSP error | Content Security Policy blocks api.infer.events | Add `https://api.infer.events` to `connect-src` in your CSP header |
-| SDK retries then stops after 5 attempts | CSP or network blocking the endpoint | Check console for the CSP help message, add domain to connect-src |
+|---|---|---|
+| "No spans landed" after setup | App not making LLM calls OR dev server cached old baseURL | Trigger a feature; restart dev server |
+| 401 on MCP tool call | Wrong read key in `~/.infer/config.json` | Check key format (`pk_read_...`); re-run setup |
+| 401 through the gateway | Upstream key (OpenAI/Anthropic) missing or wrong | Check your `apiKey` field in the client; the gateway passes this through unchanged |
+| Spans have null session_id / user_id / metadata | Client doesn't set `x-infer-*` headers | These are optional; set them via the SDK's `defaultHeaders` / `headers` option if you want per-session / per-user analysis |
+| "Failed to reconnect" after MCP upgrade | `.mcp.json` has pinned version (`@inferevents/mcp@1.0.0`) | Change args to `["@inferevents/mcp"]` (no version); restart via `/mcp` |
+| 502 `infer_unreachable_upstream` on Ollama | baseURL pointed at localhost:11434 (self-hosted) | v1 gateway blocks private addresses. Use Ollama Cloud (`api.ollama.com`); self-hosted is on the v1.1 roadmap |
+| 501 `infer_not_implemented` on some endpoint | Endpoint not in the v1 passthrough list (e.g. `/fine_tuning`, `/files`) | Non-chat endpoints are partial in v1 per parent spec §4.4 — open an issue listing the endpoint |
