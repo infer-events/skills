@@ -1,15 +1,20 @@
 ---
-name: infer-tracking-plan
-description: Use when the user wants to ADD NEW tracking events to their codebase, needs a tracking plan, or after installing the Infer SDK. Triggers on "what should I track", "suggest events", "tracking plan", "add tracking". Do NOT use for checking live data or querying existing events — use the get_top_events MCP tool for that.
+name: infer-debug-trace
+description: Use when diagnosing a specific trace (slow, failed, truncated, or anomalous), when invoked with a trace_id from an insight, or as follow-up to get_error_spans / get_trace / list_spans showing a problem trace. Triggers on "diagnose trace", "why was this slow", "why did this fail", "investigate this trace", "debug session X".
 allowed-tools:
   - AskUserQuestion
 ---
 
-# Infer Tracking Plan — Codebase-Driven Event Discovery
+# Infer Debug Trace — Live Investigation
+
+Your job: given a problem trace (slow, failed, truncated, anomalous), run
+the diagnosis arc, identify the root cause, annotate the finding so future
+sessions inherit it. The skill is a live-investigation tool — it does NOT
+generate tracking plans; it does NOT read codebase structure. It executes
+MCP tool calls against specific traces and follows the investigation
+protocols from `infer-observability`.
 
 ## Update Check (non-blocking)
-
-Run this at the start. Checks for newer Infer versions using a 6-hour cache:
 
 ```bash
 _INFER_CACHE=~/.infer/last-update-check.json
@@ -19,295 +24,260 @@ if [ -f "$_INFER_CACHE" ]; then
   [ "$_CACHE_AGE" -lt 21600 ] && _NEEDS_CHECK="no"
 fi
 if [ "$_NEEDS_CHECK" = "yes" ]; then
-  _SDK_LATEST=$(npm view @inferevents/sdk version 2>/dev/null || echo "unknown")
   _MCP_LATEST=$(npm view @inferevents/mcp version 2>/dev/null || echo "unknown")
-  _SDK_INSTALLED=$(node -e "try{console.log(require('@inferevents/sdk/package.json').version)}catch{console.log('none')}" 2>/dev/null || echo "none")
   mkdir -p ~/.infer
-  echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"sdk_latest\":\"$_SDK_LATEST\",\"mcp_latest\":\"$_MCP_LATEST\",\"sdk_installed\":\"$_SDK_INSTALLED\"}" > "$_INFER_CACHE"
-  echo "INFER_SDK_INSTALLED=$_SDK_INSTALLED INFER_SDK_LATEST=$_SDK_LATEST INFER_MCP_LATEST=$_MCP_LATEST"
+  echo "{\"checked\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"mcp_latest\":\"$_MCP_LATEST\"}" > "$_INFER_CACHE"
 else
-  cat "$_INFER_CACHE"
   echo "INFER_CHECK=cached"
 fi
 ```
 
-If installed SDK version differs from latest, append at the END of your response:
-`Infer update available — run /infer-upgrade to get the latest.`
-Do NOT block the workflow. Continue normally.
+## Entry Contract — Three-Tier Resolution
 
-You are building a tracking plan by reading the actual codebase, not guessing.
-The goal: propose specific track() calls at specific file:line locations,
-named by what they mean to the business, and get user approval before touching code.
+Before diagnosis starts, resolve *which* trace you're investigating. Use
+this order — don't skip tiers.
 
-## The Process
+### Tier 1: Explicit `trace_id`
 
-### Phase 1: Understand the Product (read before proposing)
+If the invocation gives you a specific `trace_id` (user pasted it, upstream
+skill passed it, an insight had `evidence.trace_id_samples[0]`), jump
+straight to **The Investigation Arc** below.
 
-Before suggesting a single event, you need to understand what this app does.
+Examples of explicit invocation:
+- "diagnose trace 550e8400-e29b-41d4-a716-446655440000"
+- `infer-insights` passed `evidence.trace_id_samples[0]` after user approved
+  follow-up on an insight
 
-**Read these files in order:**
-1. `package.json` — what framework, what dependencies, what's the app about
-2. `README.md` or any docs — product description, user flows
-3. `CLAUDE.md` — project context, if it exists
-4. Root layout/entry point — app structure, navigation, auth
-5. Route/page structure — `ls src/app/` or `ls src/pages/` or equivalent
+### Tier 2: Sniff recent conversation
 
-**Answer these questions before proceeding:**
-- What does this app do? (1 sentence)
-- Who is the user? (1 sentence)
-- What is the core value action? (the ONE thing users come here to do)
-- What is the activation moment? (when a new user first gets value)
-- What would make a user come back tomorrow?
+If no explicit `trace_id` in the invocation, scan recent conversation
+context for `trace_id` values. MCP tool output embeds them in:
+- `get_error_spans` result rows
+- `get_trace` output (the root `trace_id`)
+- `list_spans` result rows
+- `get_insights` evidence (`trace_id_samples[]`)
+- `annotate_trace` previous calls
 
-If you can't answer these from the code, ask the user.
+If **exactly one** candidate `trace_id` appears in recent context AND it's
+semantically connected to what the user asked about ("the top one", "this
+slow trace", "the failure I just saw"), use it.
 
-### Phase 2: Map the User Journey
+If **multiple** candidates appear (e.g. user ran `get_error_spans` with 10
+results), ask via `AskUserQuestion`:
 
-Read the codebase to map the complete user journey. For each stage,
-identify the files where that stage happens.
-
-```
-ENTRY → ACTIVATION → CORE ACTION → ENGAGEMENT → RETENTION TRIGGER
-```
-
-**Entry stage:** How do users arrive?
-- Read auth/signup flows, landing routes, onboarding components
-- Look for: registration forms, OAuth handlers, invite acceptance
-
-**Activation stage:** When does a user first get value?
-- Read the onboarding flow, first-run experience
-- Look for: setup wizards, profile creation, first content creation
-
-**Core action stage:** What's the main thing users do?
-- Read the primary feature components and API routes
-- Look for: CRUD operations, search, generation, submission
-
-**Engagement stage:** What keeps users active?
-- Read secondary features, social features, notification handlers
-- Look for: sharing, collaboration, export, integrations
-
-**Retention triggers:** What brings users back?
-- Read notification systems, scheduled jobs, email triggers
-- Look for: reminders, digests, new content alerts
-
-### Phase 3: Deep Dive — Read the Actual Code
-
-For each stage identified above, read the specific files.
-
-**What to look for:**
-
-In **API routes / server actions:**
-- Successful mutations (POST/PUT/DELETE handlers that return 200)
-- These are the most reliable tracking points — they represent completed actions
-
-In **form components:**
-- `onSubmit` handlers — track form completion, not form views
-- Distinguish between form start and form completion if the form is multi-step
-
-In **AI/LLM tool definitions:**
-- Tool call handlers — each tool invocation is a feature usage event
-- Tool results — successful completions vs errors
-
-In **State changes:**
-- Zustand/Redux actions that represent user decisions
-- React Query mutations that represent completed operations
-
-In **Navigation:**
-- Key page transitions that represent intent (pricing page = considering upgrade)
-- Auto-tracked by the SDK, but some need custom names
-
-**What NOT to track:**
-- Every button click (auto-tracked already)
-- Every page view (auto-tracked already)
-- Internal state transitions users don't initiate
-- Debug/dev-only actions
-- Reads/views without action (passive browsing is covered by auto-track)
-
-### Phase 4: Build the Tracking Plan
-
-For each proposed event, document:
-
-| Field | Description |
-|-------|-------------|
-| Event name | snake_case, business-meaningful (not technical) |
-| File | Exact file path |
-| Location | Function/handler name or line context |
-| Category | activation / engagement / monetization / referral / noise |
-| Properties | What data to include (key: type) |
-| Why | Why this event matters for analytics |
-
-**Event naming rules:**
-- Use `noun_verbed` format: `resume_uploaded`, `job_searched`, `letter_generated`
-- NOT `click_upload_button` or `api_post_resume` (too technical)
-- NOT `event_1` or `track_signup` (too generic)
-- The name should make sense in the sentence: "How many users [event_name] last week?"
-
-**Property rules:**
-- Include identifying properties: which item, which type, which category
-- Do NOT include PII: no emails, names, phone numbers
-- Do NOT include high-cardinality strings: no free text, no full URLs
-- Do include enums: plan type, role, category, status
-
-### Phase 5: Present for Approval
-
-Present the tracking plan as a numbered table:
-
-```
-## Tracking Plan: [App Name]
-
-**Product:** [1-sentence description]
-**Core value action:** [what users come here to do]
-**Activation moment:** [when new users first get value]
-
-### Proposed Events
-
-| # | Event | Category | File | Properties | Why |
-|---|-------|----------|------|------------|-----|
-| 1 | signup_completed | entry | src/app/api/auth/route.ts | method: string | Funnel start, measures acquisition |
-| 2 | profile_created | activation | src/lib/actions/profile.ts | has_photo: bool | Activation milestone |
-| 3 | project_created | core | src/lib/actions/project.ts | type: string | Core value delivery |
-| ... | ... | ... | ... | ... | ... |
-
-### Already auto-tracked (no code needed)
-- page_view (all navigation)
-- session_start (new sessions)
-- click (interactive elements)
-- form_submit (form submissions)
-- error (JS exceptions)
-
-### Funnel this enables
-signup → [activation event] → [core action] → [engagement] → return visit
-With these events, you can answer:
-- "What's my signup-to-activation conversion?"
-- "Which users are most engaged?"
-- "Where do users drop off?"
-
-```
-
-Then you MUST call the `AskUserQuestion` tool for approval. Use AskUserQuestion:
-
-> Which events should I add to your codebase?
+> Which trace should I diagnose?
 >
-> 💡 Tip: 5-10 custom events is the sweet spot. More creates noise, fewer leaves blind spots.
+> - A) trace_id=<first-ten-chars-of-first>... (status 500, 1247 ms, 3 minutes ago)
+> - B) trace_id=<first-ten-chars-of-second>... (status 429, 852 ms, 8 minutes ago)
+> - C) trace_id=<first-ten-chars-of-third>... (status 500, 2103 ms, 12 minutes ago)
+> - D) None of these — let me narrow down differently
 
-Options:
-- A) Add all events — Implement all N proposed track() calls
-- B) Let me pick — I'll tell you which ones by number (e.g. 1,2,5)
-- C) Modify the plan first — I want to rename events, change properties, or add new ones
-- D) Skip for now — Save the plan but don't add any tracking yet
+### Tier 3: Narrow-down subroutine
 
-### Phase 6: Implement Approved Events
+If no `trace_id` is available anywhere, ask the user about the **symptom**
+and run a narrow-down query:
 
-For each approved event, add the track() call.
+- **Slow** → `list_spans(min_duration_ms=3000, time_window=1h)` — returns
+  slow spans; pick the top few
+- **Failed** → `get_error_spans(limit=10, time_window=1h)` — returns
+  recent failures
+- **Specific `error_type`** → `get_error_spans(error_type=<X>, limit=10)`
+- **High-token** → `list_spans(time_window=1h)` and sort mentally on
+  `gen_ai_usage_input_tokens`
+- **User saw something specific** → ask what they saw, then narrow
 
-**Ask before each file change:** "Adding [event_name] to [file]. OK?"
+Present candidates via `AskUserQuestion` with 3–4 options (one trace each,
+plus an "other / narrow differently" option).
 
-**Implementation patterns:**
+### Session-Scoped Invocation
 
-For API route handlers (server-side, need client-side tracking):
-- Don't track on the server. Track on the client after a successful API response.
-- Find the component that calls this API and add track() in the success handler.
+If the user gives a `session_id` instead of a `trace_id` ("debug session
+tg_55555"):
 
-For form submissions:
-```typescript
-import { track } from "@/lib/analytics";
+1. Run `list_spans(session_id=<X>, time_window=24h)` — returns all spans
+   in that session
+2. Filter mentally to **failing spans** (`status_code >= 400`) OR **slow
+   spans** (top 5 by `duration_ms`) — these are the candidates
+3. Present candidates via `AskUserQuestion` as in Tier 3
+4. Once the user picks a trace, execute the full investigation arc on it
+5. After investigation, offer to loop: "Investigate another trace in this
+   session?" — session-scoped debug often has multiple correlated issues
 
-// In the onSubmit handler, AFTER successful submission:
-track("form_completed", { form: "signup", method: "email" });
+## The Investigation Arc — 4-Beat Signature
+
+Once you have a `trace_id`, execute these four phases in order. Each phase
+maps to one beat of the investigation-protocol signature shared with
+`infer-observability`:
+
+### Phase 1: Symptom — Surface the trace shape
+
+Call `get_trace(trace_id)`. This returns:
+- `total_duration_ms` — wall-clock time from first span start to last span end
+- `spans[]` — the full hierarchy, sorted by start_time with depth indicators
+- Any annotations that already exist on this trace
+
+Read the shape:
+- **How many spans?** One = single LLM call. Multiple = agent iteration
+  chain. 2–5 is typical; >10 suggests a long multi-step agent turn.
+- **Is the hierarchy nested?** `parent_span_id` links children to parents.
+  Biscuit currently doesn't propagate `parent_span_id`, so multi-iteration
+  biscuit turns look like multiple roots (Phase 6 documents this).
+- **Are there error spans?** Any span with `status_code >= 400` or
+  `stream_truncated=true` is a candidate problem.
+- **Is there a clear "slow" span?** Compare each span's `duration_ms`
+  against the trace's `total_duration_ms` — the span accounting for most
+  of the time is your primary target.
+
+Note any existing annotations — if a prior session already investigated
+this trace, you may not need to repeat work. Read their annotation; if the
+finding is stale or needs follow-up, continue. Otherwise, hand back to the
+user: "This trace was already investigated — <prior annotation>. Is that
+still the answer you need?"
+
+### Phase 2: Classify — what kind of problem is this?
+
+Based on Phase 1's shape, route to one of the investigation protocols:
+
+| Observed | Route to |
+|---|---|
+| Slow trace, all spans `status_code=200` | `infer-observability` § "Diagnosing a slow trace" |
+| Failed span(s) with `status_code >= 400` | `infer-observability` § "Diagnosing a new error_type" |
+| `attributes.stream_truncated=true` on a streaming span | Mixed — first slow-trace protocol (upstream may have slowed before dropping), then new-error-type if a specific error preceded truncation |
+| `attempt_count > 1` on multiple spans | `infer-observability` § "Diagnosing a retry storm" |
+| Unexpectedly high `gen_ai_usage_input_tokens` | `infer-observability` § "Diagnosing a cost spike" (even if not a budget issue, prompt size is the lever) |
+| Multi-span trace with only one span slow | Slow trace protocol, narrow to that specific span |
+
+If multiple classifications apply (e.g. failed AND slow AND retried —
+common for upstream-pressure failures), prioritize in order: retry-storm →
+new-error-type → slow-trace. Retry-storm explains the duration; error-type
+explains why; slow is usually a downstream symptom.
+
+### Phase 3: Diagnose — execute the protocol
+
+Cross-reference `infer-observability`'s protocol for the routed classification
+— don't re-derive the steps; execute them against this trace.
+
+Key tool calls you'll use:
+- **`get_span(span_id=X)`** — deep inspection of one span; gives you the full
+  `attributes` JSONB, `messages` (if not redacted), upstream headers, and
+  the exact error body when present
+- **Run the `correlation_hint`** (from the insight if you came from
+  `infer-insights`, else construct it manually): `git log --since=<anomaly_start - 2h> --until=<anomaly_end + 30m> --oneline`
+- **`get_token_usage(dimension=feature, time_window=1h)`** — attributes
+  token burn to the feature (if `metadata.feature` is set); useful for cost
+  investigations
+
+Execute the steps, take notes on what you find.
+
+Compare findings against the "Likely root causes" list in the protocol:
+- If one cause clearly matches the evidence, you have a finding
+- If no cause clearly matches, you have an inconclusive investigation
+- If evidence points to user-side info (e.g. "check if your rate-limit tier
+  changed"), you have a pending-user investigation
+
+### Phase 4: Close the loop — annotate
+
+Call `annotate_trace(trace_id, content)` with content starting in one of
+the four tag prefixes:
+
+- **`Root cause:`** — confirmed finding. Include what you found AND the
+  suggested fix.
+  ```
+  Root cause: commit abc123 "refactor prompt builder" enlarged system
+  prompt from 400 to 1200 tokens at 14:23 UTC; p95 tripled at that
+  timestamp. Fix: revert commit or cap prompt template length.
+  ```
+
+- **`Observation:`** — pattern noticed but not directly causal.
+  ```
+  Observation: attempt_count=3 across all spans in this trace; upstream
+  returned 503 on attempts 1 and 2, then 200 on attempt 3. Consistent
+  with a transient Ollama outage; no code-side change needed.
+  ```
+
+- **`Inconclusive:`** — investigated, no systemic cause.
+  ```
+  Inconclusive: prompt_tokens=1200 (within 7d p50 of 1400), upstream
+  200 on first attempt, status codes all normal. Single slow outlier;
+  may be upstream colo variance. Will re-investigate if pattern repeats.
+  ```
+
+- **`Pending user:`** — blocked on user-side info.
+  ```
+  Pending user: asked user to check Ollama Cloud rate-limit tier at
+  cloud.ollama.com/dashboard. Awaiting response.
+  ```
+
+After annotating, suggest the next user action in your text response:
+- Root cause → "Want me to help revert commit abc123?" or "Want me to draft
+  a PR that caps prompt size?"
+- Observation → "This looks transient; I'll watch `get_insights` over the
+  next hour. Anything else?"
+- Inconclusive → "Nothing structural found. I'll flag this in annotations
+  so future slowness here gets cross-referenced."
+- Pending user → "Once you check and let me know, I'll continue the
+  investigation."
+
+## Common Failure Modes — Quick Reference
+
+When you're first reading the trace's symptom, this table points you at the
+most-likely cause and the first query to run:
+
+| Symptom | Likely cause | First query |
+|---|---|---|
+| Slow + large `input_tokens` | Prompt regression | `git log --since=<anomaly_start - 2h>` + check prompt files |
+| Slow + `finish_reason="length"` | `max_tokens` hit; response was forced-stopped | Check client's `max_tokens` setting; may need raising or prompt tightening |
+| Slow + `tool_calls` / `tool_use` content | Agent iteration (long because agent was working, not because LLM was slow) | `get_trace(trace_id)` to see full iteration count |
+| Slow + `attempt_count > 1` | Upstream retry; duration includes retry waits | Check `status_code` distribution across attempts |
+| Fail + `status_code=429` | Rate limit | Check `attempt_count`; check `x-ratelimit-*` headers in `attributes` via `get_span` |
+| Fail + `status_code=503` or `502` | Upstream outage | `get_error_spans(error_type=upstream_error, time_window=1h)` — is it a cluster? |
+| Fail + `status_code=400` | Malformed request | Check `messages` payload in `get_span`; likely a code-side schema change |
+| `stream_truncated=true` on a streaming span | Mid-stream upstream drop or gateway cap | Check `attributes.upstream_status` + last-chunk timestamp via `get_span` |
+
+## Closing AskUserQuestion
+
+After annotating, close with:
+
 ```
-
-For AI tool calls:
-```typescript
-import { track } from "@/lib/analytics";
-
-// After the tool returns a successful result:
-track("tool_used", { tool: "search_jobs", results_count: results.length });
-```
-
-For state changes:
-```typescript
-import { track } from "@/lib/analytics";
-
-// After the state mutation succeeds:
-track("status_changed", { from: "draft", to: "published" });
-```
-
-When adding track() calls, include the category hint as the third argument:
-```typescript
-track("signup_completed", { method: "email" }, { category: "activation" });
-track("project_created", { type: "blank" }, { category: "engagement" });
-track("plan_upgraded", { plan: "pro" }, { category: "monetization" });
-track("invite_sent", { role: "editor" }, { category: "referral" });
-```
-This auto-classifies events in the ontology on first ingestion.
-
-**Add identify() at the auth boundary:**
-Find where the app resolves the current user (after login, after OAuth callback,
-after session restore). Add:
-```typescript
-identify(user.id, { plan: user.plan, role: user.role });
-```
-
-**Add reset() at logout:**
-```typescript
-import { reset } from "@/lib/analytics";
-// In the logout handler:
-reset();
-```
-
-### Phase 7: Summary
-
-After implementing, show what was added:
-
-```
-## Tracking Plan Implemented
-
-Added [N] events across [M] files:
-✓ signup_completed (src/components/auth/signup-form.tsx)
-✓ resume_uploaded (src/components/chat/chat-input.tsx)
-✓ job_searched (src/lib/ai/tools.ts)
-✗ job_applied (skipped by user)
-
-Funnel: signup → resume_uploaded → job_searched → job_matched → application_tracked
-
-To see your data:
-- "What events are being tracked?" → get_top_events
-- "What's my signup-to-search conversion?" → get_event_counts for each step
-- "Show me retention" → get_retention
-```
-
-After implementation, you MUST call the `AskUserQuestion` tool.
-
-**Role-aware:** PM → funnel visibility. Growth → conversion tracking. Founder → PMF signals. Engineer → verification.
-
 Use AskUserQuestion:
 
-> Tracking is live. What do you want to do next?
+> Investigation complete. What's next?
 >
-> 💡 Tip: Events need a few hours to accumulate. Set up daily monitoring now and check back tomorrow for real insights.
+> 💡 Tip: [rotate from tip list below]
+```
 
 Options:
-- A) Check if events are flowing — Verify the SDK is sending data correctly
-- B) See my first insights — Run /infer-insights to see what the data shows
-- C) Set up daily monitoring — Schedule automatic health checks with /schedule
-- D) View the full funnel — See conversion rates from signup through your core action
+- A) **Annotate and move on** — record the finding (already done in Phase 4);
+  return to the prior conversation
+- B) **Investigate similar traces** — `list_spans(time_window=24h)` filtered
+  to the same `(provider, model)` to see if this is a pattern
+- C) **Check for related insights** — `get_insights()` to see if the cron
+  already flagged this
+- D) **Show me the full session** — `list_spans(session_id=<X>, time_window=24h)`
+  if the trace had a `session_id` (requires Track B biscuit headers to be live)
 
-## Important Rules
+Rotating tips (pick one not used this session):
+- `💡 Tip: Prompt size is the #1 cause of LLM latency — check gen_ai_usage_input_tokens first`
+- `💡 Tip: Annotate with a tag prefix (Root cause: / Observation: / Inconclusive: / Pending user:) so future sessions can filter`
+- `💡 Tip: attempt_count > 1 means the gateway retried; root cause is upstream-side`
 
-1. **Read the code first.** Never propose events from guessing. Every suggestion
-   must reference a specific file and function you actually read.
+## What This Skill Is NOT
 
-2. **Business names, not technical names.** `resume_uploaded` not `post_api_upload`.
-   The name should be readable by a non-engineer.
+- **Not a tracking plan.** No proposing events or codebase-driven schema.
+  That was the retired `infer-tracking-plan`; the LLM-obs equivalent of
+  "what should I track?" is "set `x-infer-metadata` and `x-infer-session-id`
+  headers" — covered in `infer-setup`.
+- **Not a codebase-reading tool.** The investigation uses MCP tool calls
+  against spans/traces + `git log` on the user's actual repo. It doesn't
+  propose code changes.
+- **Not a proposal generator.** The output is a root-cause annotation, not
+  a Markdown tracking-plan document.
 
-3. **Approval before implementation.** Present the full plan. Get explicit approval.
-   Never add track() calls without permission.
+## Cross-References
 
-4. **Don't over-track.** 5-10 custom events is plenty for an MVP. More is noise.
-   Focus on the funnel: entry → activation → core → engagement.
-
-5. **Properties are minimal.** 2-4 properties per event max. No PII. No free text.
-   Enums and IDs only.
-
-6. **Auto-track handles the basics.** Don't manually track page views or clicks.
-   That's what autoTrack: true does. Custom events are for business-meaningful actions.
+- `infer-observability` — the interpretation guide; this skill cross-references
+  its protocols in Phase 3 rather than re-deriving them
+- `infer-insights` — the proactive-briefing skill; hands off to this skill
+  via `evidence.trace_id_samples[0]`
+- `annotate_trace` / `annotate_span` MCP tools — what this skill calls in
+  Phase 4 to close the loop
