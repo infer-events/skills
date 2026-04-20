@@ -32,18 +32,20 @@ fi
 
 If an update is available, append `Infer update available — run /infer-upgrade to get the latest.` at the END of your response. Don't block.
 
-## STEP ZERO: Project Summary First
+## STEP ZERO & STEP ONE: Summary + Insights (fire in parallel)
 
-**Always call `get_project_summary()` first.** Returns the hourly-compiled
-wiki: model distribution, weekly spend, 7-day error rate, active anomaly
-threads, with annotations from previous investigations.
+These two reads are independent — call them in parallel to halve the
+wall-clock. You need both before presenting the briefing: the summary gives
+project-wide context; insights surface cron-detected anomalies.
 
-Present the summary to the user, then proceed to insights.
+### STEP ZERO: `get_project_summary()`
 
-## STEP ONE: Get insights with thread context
+Hourly-compiled wiki: model distribution, weekly spend, 7-day error rate,
+active anomaly threads, annotations from previous investigations.
 
-Call `get_insights()` — no severity filter, get everything. Insights now
-include:
+### STEP ONE: `get_insights()`
+
+No severity filter — get everything. Insights include:
 
 - **Evidence keys** — `evidence.provider`, `evidence.model`, optional
   `evidence.trace_id`, plus per-detection fields (e.g. `p95_regression_pct`,
@@ -53,9 +55,14 @@ include:
 - **Correlation hint** — a pre-built `git log` command that widens 2 hours
   before the anomaly start, ready to copy-paste
 
-If `get_insights` returns the empty envelope ("No new insights. Everything
-looks normal, or there isn't enough data yet."), proceed to the manual query
-sequence below — but usually the empty envelope means exactly what it says.
+**Empty envelope handling.** If `get_insights` returns the empty envelope
+("No new insights. Everything looks normal, or there isn't enough data
+yet."), **trust it** for interactive health-check queries — the cron runs
+hourly and covers 9 detection types across 7-day baselines; empty really
+does mean "nothing unusual." Use the compact **`## Infer Pulse`** output
+format from the Automated Mode section below, not the full multi-insight
+format. Only run the Manual Query Sequence if the user asks for a probe
+deeper than the default briefing.
 
 ## STEP TWO: Correlate with code changes (for CODE actions)
 
@@ -125,7 +132,10 @@ seems fine") leave the next agent no better off.
 
 ## STEP FIVE: Close with AskUserQuestion
 
-Use the 4-option role-neutral archetype:
+**Branch the options by what the data actually supports.** Don't present
+no-ops (e.g. "Investigate the top insight" when `count == 0`).
+
+### If insights exist (count > 0)
 
 ```
 Use AskUserQuestion. The question is:
@@ -136,18 +146,52 @@ Use AskUserQuestion. The question is:
 ```
 
 Options:
-- A) **Investigate the top insight** — Invoke infer-debug-trace with the top
-     insight's `evidence.trace_id` (or narrow-down subroutine if aggregate)
-- B) **Zoom out** — Re-run `get_project_summary()` for the project-wide view
+- A) **Investigate the top insight** — invoke `infer-debug-trace` with the
+     top insight's `evidence.trace_id` (or narrow-down subroutine if
+     aggregate)
+- B) **Zoom out** — re-run `get_project_summary()` for the project-wide
+     view
 - C) **Dig into a specific model / provider** — narrow via
-     `get_latency_stats(dimension=model)` or `get_cost_stats(dimension=model)`
-- D) **Set up daily monitoring** — `/loop` or `/schedule` for recurring checks
+     `get_latency_stats(dimension=model)` or
+     `get_cost_stats(dimension=model)`
+- D) **Set up daily monitoring** — `/loop` or `/schedule` for recurring
+     checks
 
-Rotating tips (pick one not used in this session):
+### If the envelope was empty (count == 0)
+
+```
+Use AskUserQuestion. The question is:
+
+> Everything looks normal. What's next?
+>
+> 💡 Tip: [rotate from the tip list below]
+```
+
+Options:
+- A) **Set up recurring monitoring** — `/loop` or `/schedule`; highest-
+     leverage action on a quiet project
+- B) **Probe deeper** — run the Manual Query Sequence Round 1
+     (`get_latency_stats` + `get_error_spans` + `get_cost_stats`) to look
+     past the cron
+- C) **Verify spans are flowing** — `list_spans(limit=5, time_window=1h)`
+     to confirm the gateway is still capturing traffic (rule out a silent
+     outage)
+- D) **Configure missing dimensions** — if `session_id` / `user_id` /
+     `metadata.feature` are null on spans, the client isn't propagating
+     `x-infer-*` headers; unlock per-session/per-user analytics by invoking
+     `infer-setup`
+
+### If the project has < 100 spans total
+
+Use the options from the "When You Don't Have Enough Data" section below.
+
+### Rotating tips (pick one not used in this session)
+
 - `💡 Tip: Set up /loop to run this hourly — you'll catch regressions before they compound`
 - `💡 Tip: attempt_count > 1 means the gateway retried; the root cause is upstream-side`
 - `💡 Tip: Annotate with a tag prefix (Root cause: / Observation: / Inconclusive: / Pending user:) so future sessions can filter`
 - `💡 Tip: Prompt size is the #1 cause of LLM latency — check gen_ai_usage_input_tokens first`
+- `💡 Tip: An empty envelope on a project with steady traffic is the goal — means the gateway + cron are both working and nothing is anomalous`
 
 ## Manual Query Sequence (when get_insights is empty)
 
