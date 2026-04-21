@@ -1,6 +1,6 @@
 ---
 name: infer-observability
-description: Use when interpreting Infer MCP tool results, understanding LLM observability data (latency, errors, tokens, cost, traces), or diagnosing patterns in agent behavior. Auto-loads when user asks questions about LLM performance, spend, errors, or spans.
+description: Use when interpreting Infer MCP tool results, understanding LLM observability data (latency, errors, tokens, cost, traces), diagnosing patterns in agent behavior, or capturing pre-ship baselines before a prompt/model/config change. Auto-loads when user asks about LLM performance, spend, errors, spans, or says they're about to ship/deploy/change something that affects the agent.
 allowed-tools:
   - AskUserQuestion
 ---
@@ -72,6 +72,7 @@ possible via `get_*_stats(dimension=feature)`.
 | "any anomalies this week?" | `get_insights()` (returns cron-detected findings) |
 | "let me inspect this one span" | `get_span(span_id=X)` |
 | "annotate what I found" | `annotate_span(span_id, content)` or `annotate_trace(trace_id, content)` |
+| "about to ship X — anything I should watch?" / pre-deploy checklist | `get_latency_stats(dimension=model, time_window=7d)` + `get_token_usage(dimension=model, time_window=7d)` + `get_cost_stats(dimension=model, time_window=7d)` — capture baseline; see **Pre-Ship / Post-Ship Watch** protocol |
 | "create a new project" | `create_project(name)` |
 
 **Never pass `project_id` as a tool argument** — it's always derived from your
@@ -365,6 +366,97 @@ upstream outage <time window>, waited out`.
     stream_options: { include_usage: true }, // <-- this line
   });
   ```
+
+## Pre-Ship / Post-Ship Watch (Preventive Protocol)
+
+The four Investigation Protocols above are diagnostic — they surface root
+causes *after* something changed. This one is **preventive**: capture
+baselines *before* a change so regressions are detectable *after* it.
+
+### Symptom / trigger
+
+User said something like:
+- "I'm about to ship a prompt change — anything I should watch?"
+- "We're swapping `gpt-4o` for `gpt-4o-mini` next week — what should I
+  measure?"
+- "Adding a tool to the agent tomorrow — how do I make sure it doesn't
+  regress?"
+- "Pre-deploy checklist, please"
+
+### Step 1 — capture pre-ship baseline (3 parallel calls)
+
+```
+get_latency_stats(dimension=model, time_window=7d)
+get_token_usage(dimension=model,  time_window=7d)
+get_cost_stats(dimension=model,    time_window=7d)
+```
+
+These are independent reads — fire them in parallel.
+
+Surface prominently to the user:
+- **p95 latency** — primary regression signal. Phase 5's `latency-regression`
+  detection fires on +50% vs baseline with statistical significance; a
+  cron-detected insight is the cleanest post-ship alarm.
+- **Average input_tokens per span** — `input_tokens / count`. Direct
+  prompt-size baseline; the most sensitive signal for prompt regressions.
+- **Error rate** — fetch from `get_project_summary()`. Catches response-
+  shape regressions that don't move latency.
+- **`estimated_fraction`** — if `get_token_usage` reports >30% estimated,
+  warn the user: post-ship token deltas will be noisy. Suggest
+  `stream_options: { include_usage: true }` on the client before the ship
+  if the deltas need to be precise.
+
+### Step 2 — ship the change
+
+User runs the deploy. No tool calls here; wait 1–2 hours so the gateway
+accumulates 20–30 new spans on the new config. If the user wants the
+watch automated, suggest `/loop` to re-run this skill hourly for 24h.
+
+### Step 3 — post-ship re-check
+
+```
+get_latency_stats(dimension=model, time_window=1h)
+get_token_usage(dimension=model,  time_window=1h)
+get_insights()
+```
+
+**Thresholds for concern (relative to the 7d baseline from Step 1):**
+1. p95 in the 1h window ≥ baseline p95 × 1.5 → a `latency-regression`
+   insight is likely to fire on the next hourly cron tick; don't wait for
+   it, start investigating the diff.
+2. Avg input_tokens/span materially above baseline → prompt-size regression.
+   Investigate the diff before more spans accumulate on the new prompt.
+3. Error rate in the 1h window ≥ baseline × 2 → response-shape regression.
+   Run `get_error_spans(limit=10, time_window=1h)` to identify the new
+   failure mode.
+
+### Likely regression shapes (interpretation)
+
+1. **p95 up + input_tokens up** → prompt got bigger. Expected if you
+   enlarged the system prompt or added context; investigate whether the
+   size jump is intentional or accidental.
+2. **p95 up + input_tokens stable** → non-prompt slowdown. Model-variant
+   swap, upstream routing change, or tool-iteration bloat.
+3. **Error rate up** → downstream code's response-shape assumption broke.
+   Check `get_error_spans` for the new `error_type`; often a schema drift
+   in tool-call arguments or finish-reason handling.
+4. **Cost up disproportionately to call volume** → model swap (e.g. `mini`
+   → full) OR prompt inflation concentrated in a specific feature (check
+   `get_cost_stats(dimension=feature)` if `metadata.feature` is populated).
+
+### Close the loop
+
+- **No regression:** `annotate_trace` on a representative post-ship trace
+  with `Observation: post-ship baseline stable — p95=<X>, input_tokens_avg=<Y>,
+  error_rate=<Z>, within 7d pre-ship baseline.` Useful reference for the
+  next ship-watch on this project.
+- **Regression confirmed:** the `latency-regression` /
+  `token-consumption-spike` / `new-error-type` insight's
+  `evidence.trace_id_samples[0]` hands off cleanly to `infer-debug-trace`.
+- **Regression suspected but no insight yet:** set up `/loop` to re-run
+  `get_insights()` hourly for 24h. Most anomalies accumulate statistical
+  significance within 2–6 hours of ship; waiting past 24h with no insight
+  generally means there's no real regression.
 
 ## Anti-Patterns — What NOT to Do
 

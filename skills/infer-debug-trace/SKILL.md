@@ -160,7 +160,12 @@ Cross-reference `infer-observability`'s protocol for the routed classification
 Key tool calls you'll use:
 - **`get_span(span_id=X)`** — deep inspection of one span; gives you the full
   `attributes` JSONB, `messages` (if not redacted), upstream headers, and
-  the exact error body when present
+  the exact error body when present.
+  **Large-payload note:** when `gen_ai_usage_input_tokens > 20,000`, the
+  response can exceed 100 KB because `messages` includes the full
+  accumulated context. The MCP harness saves oversized responses to a file
+  and returns the path — use `jq`, Grep, or a small Python script against
+  the saved file rather than trying to print the blob inline.
 - **Run the `correlation_hint`** (from the insight if you came from
   `infer-insights`, else construct it manually): `git log --since=<anomaly_start - 2h> --until=<anomaly_end + 30m> --oneline`
 - **`get_token_usage(dimension=feature, time_window=1h)`** — attributes
@@ -253,13 +258,17 @@ Options:
   to the same `(provider, model)` to see if this is a pattern
 - C) **Check for related insights** — `get_insights()` to see if the cron
   already flagged this
-- D) **Show me the full session** — `list_spans(session_id=<X>, time_window=24h)`
-  if the trace had a `session_id` (requires Track B biscuit headers to be live)
+- D) **Set up recurring monitoring** — suggest `/loop` or `/schedule` for
+  periodic `get_insights()` checks on this `(provider, model)` pattern.
+  Useful when the investigation closed as Observation/Inconclusive and you
+  want a safety net for recurrence, or when the user wants automated health
+  reports
 
 Rotating tips (pick one not used this session):
 - `💡 Tip: Prompt size is the #1 cause of LLM latency — check gen_ai_usage_input_tokens first`
 - `💡 Tip: Annotate with a tag prefix (Root cause: / Observation: / Inconclusive: / Pending user:) so future sessions can filter`
 - `💡 Tip: attempt_count > 1 means the gateway retried; root cause is upstream-side`
+- `💡 Tip: If the trace had a non-null session_id, list_spans(session_id=<X>, time_window=24h) shows the full session — useful for correlated issues across turns`
 
 ## What This Skill Is NOT
 

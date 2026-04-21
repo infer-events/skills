@@ -1,6 +1,6 @@
 {
   "name": "@inferevents/skills",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Agent skills for Infer — LLM observability for AI agents. 5 skills: setup, observability interpretation, proactive insights, live trace debugging, upgrade.",
   "repository": {
     "type": "git",
